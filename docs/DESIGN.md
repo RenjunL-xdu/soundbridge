@@ -149,6 +149,40 @@ from the numbers it sent and the gap the sender echoed back — it never measure
 If the two tables disagreed by a single carrier, the receiver would be unpacking a different
 number of bits per subcarrier and would decode nothing at all.
 
+### The handshake needed its own protection
+
+The fountain code makes payload loss a non-event, and that produced a blind spot: the
+handshake had no equivalent protection, so a transfer that could survive losing a quarter of
+its *data* could still be killed by losing one *setup* burst. Three separate single points of
+failure, all found by running a transfer with 25% of bursts destroyed in flight:
+
+- **A lost sounding burst produced a confidently wrong answer.** The receiver, having nothing
+  to measure, replied with a fabricated flat estimate. The sender built a plan on it, the plan
+  turned out to carry zero bits, and the transfer aborted. Silence is strictly better than a
+  fabricated measurement here: it makes the sender repeat the sounding, which is the recovery
+  we want. The receiver now says nothing rather than something false.
+- **The probe was mistakable for ordinary traffic.** The sounding swept upward across
+  0.8–20 kHz, and every ordinary burst sweeps upward inside that range, so when the real
+  sounding went missing the matched filter locked onto a control burst instead and estimated
+  the channel at entirely the wrong offset — producing a measurement that looked valid and was
+  meaningless. The sounding now sweeps *downward*. An up-chirp and a down-chirp over the same
+  band are near-orthogonal; measured discrimination is a factor of roughly 750,000
+  (correlation ratio 5.7e7 against its own reference, 22 against the opposite one). A
+  plausibility check on the resulting SNR catches whatever slips through.
+- **A report was treated as a usable report.** The sender retried only until *an* answer
+  arrived, not until a *workable plan* existed. Retrying the whole handshake — announce, sound,
+  report, allocate — and rejecting any plan without capacity closes it.
+- **The plan and header were sent exactly once.** Losing that one burst left the receiver deaf
+  while the sender streamed a payload it could not interpret. They now repeat until the
+  receiver acknowledges. The subtlety is what counts as proof of receipt: a receiver still
+  waiting for a plan keeps re-sending its channel report, so treating *any* reply as
+  confirmation would stop the retransmissions exactly when they were needed. Only an
+  acknowledgement, which a receiver can only produce once it has the header, is proof.
+
+The general shape of the mistake: robustness had been designed into the part of the system
+carrying the most bytes, and the parts carrying the fewest — the ones every subsequent byte
+depends on — were left unprotected.
+
 ### Turn-taking
 
 The link is half duplex. Control traffic — handshake, plan, acknowledgements — always rides the

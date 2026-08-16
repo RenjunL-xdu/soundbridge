@@ -11,7 +11,7 @@
 import { BANDS, bandById, buildPlan, selectBand, bitLoadFor, formatDuration } from './bands.js';
 import {
   encodeBurst, decodeBurst, BurstDetector, burstCapacity,
-  symbolsForDuration, symbolsForSlots, symbolsFor, burstLayout, preambleFor,
+  symbolsForDuration, symbolsForSlots, symbolsFor, burstLayout, soundingPreambleFor,
 } from './burst.js';
 import { trainingSymbol, estimateChannel } from '../dsp/ofdm.js';
 import { taperEdges } from '../dsp/window.js';
@@ -60,7 +60,7 @@ export function buildSounding(fs) {
   for (let i = 0; i < t.length; i++) te += t[i] * t[i];
   const symRms = Math.sqrt(te / t.length) || 1e-12;
 
-  const pre = preambleFor(wide);
+  const pre = soundingPreambleFor(wide);
   let pe = 0;
   for (let i = 0; i < pre.length; i++) pe += pre[i] * pre[i];
   const preRms = Math.sqrt(pe / pre.length) || 1e-12;
@@ -189,38 +189,51 @@ export class SenderSession {
     const digest = await sha256(fileBytes);
     this._emit('prepared', { rawSize, size: data.length, compressed });
 
-    // --- handshake: announce, sound, wait for the receiver's report ---------
-    let report = null;
-    for (let attempt = 0; attempt < 12 && !report && !this.abortFlag; attempt++) {
+    // --- handshake: announce, sound, wait for a report we can actually use ---
+    //
+    // Retried as a whole, because a report is not the same thing as a usable
+    // report. If the sounding burst is the one that gets lost - someone talks
+    // over it, a door slams - the receiver has nothing to measure, and a plan
+    // built on that describes a channel that cannot carry a single bit. The
+    // fountain code protects the payload from loss but nothing protected the
+    // handshake, so one unlucky burst aborted the entire transfer. Treat an
+    // unusable plan exactly like no answer at all and sound the channel again.
+    let choice = null, plan = null, bitLoad = null, symbols = 0, cap = null;
+    let sawReceiver = false;
+
+    for (let attempt = 0; attempt < 12 && !choice && !this.abortFlag; attempt++) {
       this._emit('handshake', { attempt });
       await this.sendControl([pkt.buildHello(this.sessionId, data.length, name)]);
       await this.sendSounding();
       const replies = await this.listenControl(2.0);
-      report = replies.find(r => r.type === pkt.TYPE.REPORT && r.sessionId === this.sessionId);
+      const report = replies.find(r => r.type === pkt.TYPE.REPORT && r.sessionId === this.sessionId);
+      if (!report) continue;
+      sawReceiver = true;
+
+      // The bit-loading table is derived from the receiver's own 32-band report,
+      // never from anything measured locally. Both ends run the identical
+      // allocation over the identical numbers, so both arrive at byte-for-byte
+      // the same table. If they disagreed by even one carrier the receiver would
+      // be unpacking a different number of bits per subcarrier and decode nothing.
+      const c = selectBand(makeSnrLookup(report.snrBands), data.length, {
+        fs: this.fs, maxComfort: this.maxComfort, budgetSec: this.budgetSec,
+        gapDb: DEFAULT_GAP_DB,
+      });
+      if (!c) continue;
+
+      const sym = symbolsFor(c.plan, c.alloc.bitLoad, 1.4, 1);
+      if (sym <= 0) continue;
+      const capacity = burstCapacity(c.plan, c.alloc.bitLoad, sym);
+      if (capacity.slots < 1) continue;
+
+      choice = c; plan = c.plan; bitLoad = c.alloc.bitLoad; symbols = sym; cap = capacity;
     }
-    if (!report) throw new Error('no receiver answered');
 
-    // --- choose a band from what the receiver actually measured -------------
-    // The bit-loading table is derived from the receiver's own 32-band report,
-    // never from anything measured locally. Both ends run the identical
-    // allocation over the identical numbers, so both arrive at byte-for-byte the
-    // same table. If they disagreed by even one carrier the receiver would be
-    // unpacking a different number of bits per subcarrier and decode nothing.
-    const snrByHz = makeSnrLookup(report.snrBands);
-    const choice = selectBand(snrByHz, data.length, {
-      fs: this.fs, maxComfort: this.maxComfort, budgetSec: this.budgetSec,
-      gapDb: DEFAULT_GAP_DB,
-    });
-    if (!choice) throw new Error('no usable band');
-
-    const plan = choice.plan;
-    const bitLoad = choice.alloc.bitLoad;
-    const symbols = symbolsFor(plan, bitLoad, 1.4, 1);
-    const cap = symbols > 0 ? burstCapacity(plan, bitLoad, symbols) : { slots: 0 };
-    if (symbols <= 0 || cap.slots < 1) {
-      throw new Error(
-        'the link is too weak to carry data: the receiver measured no usable ' +
-        'subcarriers. Move the devices closer, raise the volume, or reduce background noise.');
+    if (!choice) {
+      throw new Error(sawReceiver
+        ? 'the receiver answered but measured no usable subcarriers. Move the devices ' +
+          'closer, raise the volume, or reduce background noise.'
+        : 'no receiver answered');
     }
 
     const chunks = planChunks(data.length, BLOCK_SIZE);
@@ -232,20 +245,27 @@ export class SenderSession {
       bitsPerSymbol: cap.bps, symbols, table: tableFingerprint(plan, bitLoad),
     });
 
-    await this.sendControl([
+    // Kept, not just sent: this pair is the only way the receiver learns how to
+    // demodulate anything, and sending it once made it a single point of
+    // failure. One dropped burst and the receiver sits deaf while the sender
+    // happily streams a payload it cannot interpret. It is repeated below until
+    // the receiver demonstrably has it.
+    const planPackets = [
       pkt.buildPlan(this.sessionId, plan.band.id, BLOCK_SIZE, chunks.length, DEFAULT_GAP_DB),
       pkt.buildHeader(this.sessionId, {
         size: rawSize, compressedSize: data.length, compressed,
         blockSize: BLOCK_SIZE, totalChunks: chunks.length,
         sha256: digest, name, mime,
       }),
-    ]);
+    ];
+    await this.sendControl(planPackets);
 
     // --- stream fountain packets -------------------------------------------
     const encoders = chunks.map(c => new FountainEncoder(data.subarray(c.offset, c.offset + c.length), BLOCK_SIZE));
     const done = new Set();
     const esi = chunks.map(c => 0);
     let burstsSinceAck = 0;
+    let sawAck = false;
     // How often to pause and collect acknowledgements.
     //
     // An acknowledgement round costs a control burst plus a listen — roughly
@@ -285,13 +305,20 @@ export class SenderSession {
         for (const r of replies) {
           if (r.sessionId !== this.sessionId) continue;
           if (r.type === pkt.TYPE.ACK) {
+            sawAck = true;
             for (let i = 0; i < chunks.length; i++) {
               if (r.doneBitmap[i >> 3] & (0x80 >> (i & 7))) done.add(i);
             }
           } else if (r.type === pkt.TYPE.FIN) {
+            sawAck = true;
             if (r.ok) { for (let i = 0; i < chunks.length; i++) done.add(i); }
           }
         }
+        // Only an acknowledgement proves the receiver has the plan, because a
+        // receiver still waiting for one keeps repeating its channel report.
+        // Treating any reply as proof would stop the resends precisely when they
+        // are needed. Until an ACK arrives, assume the plan went missing.
+        if (!sawAck) await this.sendControl(planPackets);
         const elapsed = (Date.now() - t0) / 1000;
         this._emit('progress', {
           chunksDone: done.size, chunks: chunks.length,
@@ -334,7 +361,9 @@ export class ReceiverSession {
     const layout = burstLayout(wide, SOUNDING_SYMBOLS);
     if (audio.length < layout.trainOffset + wide.symLen * 2) return null;
 
-    const det = new BurstDetector(wide, { minRatio: 4 });
+    // Match the sounding's own down-chirp, so an ordinary up-sweeping burst
+    // cannot be mistaken for it.
+    const det = new BurstDetector(wide, { minRatio: 4, ref: soundingPreambleFor(wide) });
     const hit = det.find(audio, Math.max(1, audio.length - (layout.trainOffset + wide.symLen * 2)));
     if (!hit) return null;
 
@@ -343,6 +372,13 @@ export class ReceiverSession {
     const s1 = audio.subarray(t0, t0 + wide.symLen);
     const s2 = audio.subarray(t0 + wide.symLen, t0 + wide.symLen * 2);
     const chan = estimateChannel(wide, s1, s2);
+
+    // Sanity-check the result before believing it. A detection that landed in
+    // the wrong place still yields numbers, and reporting those is worse than
+    // reporting nothing: the sender builds a plan on them that carries no data.
+    const finite = wide.carriers.map(k => chan.snrDb[k]).filter(isFinite).sort((a, b) => a - b);
+    if (finite.length < wide.carriers.length / 2) return null;
+    if (finite[finite.length >> 1] < 3) return null;
 
     // Condense to 32 coarse bands for the report packet.
     //
@@ -390,14 +426,21 @@ export class ReceiverSession {
       if (!hello) continue;
       this._emit('found', { name: hello.name, size: hello.fileSize });
 
+      // If the sounding burst did not survive, say nothing and keep listening.
+      // Answering with a fabricated flat estimate is worse than silence: the
+      // sender builds a plan on it, that plan turns out to carry no data, and
+      // the transfer aborts. Staying quiet makes the sender repeat its
+      // announcement and sounding, which is exactly the recovery we want.
+      const meas = this.measureWideband(audio);
+      if (!meas) { hello = null; continue; }
+
       // Remember exactly what the sender will see: the values *after*
       // quantisation, not the raw measurements. The sender derives the shared
       // bit-loading table from the bytes on the wire, so keeping the originals
       // here would silently desynchronise the two tables on every carrier near
       // an allocation threshold. Every later retransmission repeats these same
       // numbers for the same reason.
-      const meas = this.measureWideband(audio);
-      this.reportedBands = pkt.quantizeBands(meas ? meas.bands : new Array(32).fill(6));
+      this.reportedBands = pkt.quantizeBands(meas.bands);
       await this.sendControl([pkt.buildReport(hello.sessionId, this.reportedBands)]);
     }
     if (this.abortFlag) return null;

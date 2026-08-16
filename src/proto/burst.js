@@ -9,7 +9,7 @@
 // before the training symbols measure the channel. Two identical training
 // symbols give H[k] and the noise floor in one shot.
 
-import { linearChirp, findChirp, findChirps } from '../dsp/chirp.js';
+import { linearChirp, inverseChirp, findChirp, findChirps } from '../dsp/chirp.js';
 import {
   bitsPerSymbol, modulateBits, trainingSymbol, estimateChannel,
   demodulateSymbol, symbolRms, BitReader, BitWriter,
@@ -91,6 +91,23 @@ export function preambleFor(plan) {
   return linearChirp(plan.band?.fLo ?? plan.kLo * plan.binHz,
                      plan.band?.fHi ?? plan.kHi * plan.binHz,
                      PREAMBLE_SEC, plan.fs);
+}
+
+/**
+ * Preamble for the wideband channel probe: a **down**-sweep.
+ *
+ * An up-chirp and a down-chirp over the same band are very nearly orthogonal,
+ * which is the whole point. The sounding probe spans 0.8-20 kHz and ordinary
+ * bursts sweep upward inside it, so a sounding that also swept upward was being
+ * confused with a control burst whenever the real sounding went missing: the
+ * matched filter locked onto the control preamble instead, the receiver
+ * estimated the channel at entirely the wrong offset, and reported a confident
+ * measurement of nothing. Sweeping the other way makes the two unmistakable.
+ */
+export function soundingPreambleFor(plan) {
+  return inverseChirp(plan.band?.fLo ?? plan.kLo * plan.binHz,
+                      plan.band?.fHi ?? plan.kHi * plan.binHz,
+                      PREAMBLE_SEC, plan.fs);
 }
 
 /**
@@ -215,9 +232,10 @@ export function decodeBurst(plan, bitLoad, samples, start, symbols) {
  * idle in a noisy room without constantly firing on nothing.
  */
 export class BurstDetector {
-  constructor(plan, { minRatio = 5 } = {}) {
+  /** @param opts.ref override the reference waveform (e.g. the sounding down-chirp) */
+  constructor(plan, { minRatio = 5, ref = null } = {}) {
     this.plan = plan;
-    this.ref = preambleFor(plan);
+    this.ref = ref || preambleFor(plan);
     this.minRatio = minRatio;
     this.lastIndex = -1;
   }
