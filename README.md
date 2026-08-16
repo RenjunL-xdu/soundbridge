@@ -1,10 +1,15 @@
 # Sonar Transfer
 
+**→ [shreevallabhadatt.github.io/sonar-transfer](https://shreevallabhadatt.github.io/sonar-transfer/)**
+
 Send files between two devices using **sound alone**. No network, no Bluetooth, no pairing,
 no accounts. A phone and a laptop in the same room can move a file between them with nothing
 but a speaker and a microphone.
 
-Runs entirely in the browser as a static page, so GitHub Pages is enough to host it.
+Runs entirely in the browser as a static page, so GitHub Pages is enough to host it. Open the
+link on both devices, press **Receive** on one and **Send** on the other. Run the
+[device check](https://shreevallabhadatt.github.io/sonar-transfer/calibrate.html) first on any
+new pair — speaker and microphone response above 17 kHz varies enormously.
 
 ---
 
