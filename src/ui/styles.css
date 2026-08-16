@@ -1,0 +1,235 @@
+:root {
+  --ground: #f3f5f8;
+  --surface: #ffffff;
+  --surface-2: #e9edf3;
+  --ink: #111820;
+  --ink-2: #4a5768;
+  --ink-3: #78879a;
+  --rule: #d4dbe4;
+  --accent: #0b6e78;
+  --accent-2: #0e8f9c;
+  --accent-wash: #ddeef0;
+  --warn: #9a5b0c;
+  --warn-wash: #f7ecd9;
+  --stop: #a33a31;
+  --ok: #2c6b45;
+  --mono: ui-monospace, "Cascadia Mono", Consolas, "SF Mono", Menlo, monospace;
+  --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --radius: 6px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --ground: #0e1319;
+    --surface: #161d26;
+    --surface-2: #1e2733;
+    --ink: #e6ecf3;
+    --ink-2: #a3b1c2;
+    --ink-3: #71808f;
+    --rule: #2a3542;
+    --accent: #3fceda;
+    --accent-2: #5fe0ea;
+    --accent-wash: #12313a;
+    --warn: #e5a445;
+    --warn-wash: #32270f;
+    --stop: #e8776b;
+    --ok: #63c98b;
+  }
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body {
+  background: var(--ground);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 16px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ---------- header ---------- */
+.top {
+  border-bottom: 1px solid var(--rule);
+  background: var(--surface);
+  position: sticky; top: 0; z-index: 10;
+}
+.brand {
+  display: flex; align-items: center; gap: 10px;
+  max-width: 780px; margin: 0 auto; padding: 16px 20px 10px;
+  font-weight: 640; letter-spacing: -.01em; font-size: 17px;
+}
+.logo { width: 22px; height: 22px; color: var(--accent); flex: none; }
+.tabs {
+  display: flex; gap: 4px;
+  max-width: 780px; margin: 0 auto; padding: 0 20px;
+}
+.tab {
+  appearance: none; border: none; background: none;
+  font: inherit; font-size: 14px; color: var(--ink-3);
+  padding: 9px 12px; cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+}
+.tab:hover { color: var(--ink); }
+.tab.is-active { color: var(--accent); border-bottom-color: var(--accent); font-weight: 600; }
+.tab:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; border-radius: 3px; }
+
+/* ---------- layout ---------- */
+main { max-width: 780px; margin: 0 auto; padding: 24px 20px 80px; }
+.panel { display: none; }
+.panel.is-active { display: block; }
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  padding: 22px;
+  margin-bottom: 18px;
+}
+.card h2 { font-size: 20px; margin: 0 0 6px; letter-spacing: -.015em; }
+.card h3 { font-size: 16px; margin: 22px 0 6px; letter-spacing: -.01em; }
+.lead { color: var(--ink-2); margin: 0 0 18px; font-size: 15px; }
+
+/* ---------- file drop ---------- */
+.drop {
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+  border: 1.5px dashed var(--rule); border-radius: var(--radius);
+  padding: 30px 20px; cursor: pointer; text-align: center;
+  transition: border-color .15s, background .15s;
+}
+.drop:hover, .drop.is-over { border-color: var(--accent); background: var(--accent-wash); }
+.drop-icon {
+  font-size: 20px; color: var(--accent);
+  width: 34px; height: 34px; border-radius: 50%;
+  display: grid; place-items: center; background: var(--accent-wash);
+}
+.drop-main { font-weight: 600; }
+.drop-sub { font-size: 13px; color: var(--ink-3); font-family: var(--mono); }
+
+/* ---------- fields ---------- */
+.field { margin-top: 22px; }
+.field-head {
+  display: flex; justify-content: space-between; align-items: baseline;
+  margin-bottom: 8px;
+}
+.field-head label { font-size: 14px; font-weight: 600; }
+.field-head output {
+  font-family: var(--mono); font-size: 13px; color: var(--accent); font-weight: 600;
+}
+input[type="range"] { width: 100%; accent-color: var(--accent); }
+.ticks {
+  display: flex; justify-content: space-between;
+  font-family: var(--mono); font-size: 11px; color: var(--ink-3); margin-top: 2px;
+}
+.hint { font-size: 13px; color: var(--ink-3); margin: 8px 0 0; }
+
+/* ---------- buttons ---------- */
+.actions { display: flex; gap: 10px; margin-top: 24px; flex-wrap: wrap; }
+.btn {
+  appearance: none; font: inherit; font-size: 14px; font-weight: 600;
+  padding: 10px 18px; border-radius: var(--radius); cursor: pointer;
+  border: 1px solid var(--rule); background: var(--surface-2); color: var(--ink);
+  text-decoration: none; display: inline-block;
+}
+.btn:hover:not(:disabled) { border-color: var(--ink-3); }
+.btn:disabled { opacity: .45; cursor: not-allowed; }
+.btn-primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+:root:not([data-theme="light"]) .btn-primary { color: #06232a; }
+@media (prefers-color-scheme: light) { .btn-primary { color: #fff; } }
+.btn-primary:hover:not(:disabled) { background: var(--accent-2); border-color: var(--accent-2); }
+.btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* ---------- status ---------- */
+.status-head {
+  display: flex; justify-content: space-between; align-items: center; gap: 12px;
+  margin-bottom: 14px;
+}
+.status-head h3 { margin: 0; font-size: 16px; }
+.chip {
+  font-family: var(--mono); font-size: 11px; font-weight: 600;
+  padding: 3px 9px; border-radius: 3px;
+  background: var(--accent-wash); color: var(--accent); white-space: nowrap;
+}
+.chip.audible { background: var(--warn-wash); color: var(--warn); }
+
+.bar {
+  height: 6px; border-radius: 3px; background: var(--surface-2);
+  overflow: hidden; margin-bottom: 16px;
+}
+.bar-fill {
+  height: 100%; width: 0%; background: var(--accent);
+  transition: width .35s ease;
+}
+
+.stats {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+  gap: 14px; margin: 0;
+}
+.stats div { margin: 0; }
+.stats dt {
+  font-family: var(--mono); font-size: 10.5px; letter-spacing: .07em;
+  text-transform: uppercase; color: var(--ink-3); margin-bottom: 3px;
+}
+.stats dd {
+  margin: 0; font-family: var(--mono); font-size: 15px; font-weight: 600;
+  font-variant-numeric: tabular-nums; overflow-wrap: anywhere;
+}
+.note { font-size: 13px; color: var(--ink-2); margin: 16px 0 0; }
+.note.warn { color: var(--warn); }
+.note.bad { color: var(--stop); }
+.note.good { color: var(--ok); }
+
+/* ---------- mic meter ---------- */
+.meter { display: flex; align-items: center; gap: 10px; margin-top: 18px; }
+.meter-label {
+  font-family: var(--mono); font-size: 11px; color: var(--ink-3);
+  letter-spacing: .06em; text-transform: uppercase;
+}
+.meter-track {
+  flex: 1; height: 5px; border-radius: 3px; background: var(--surface-2); overflow: hidden;
+}
+.meter-fill { height: 100%; width: 0%; background: var(--accent); transition: width .08s linear; }
+
+/* ---------- prose ---------- */
+.prose p { color: var(--ink-2); font-size: 15px; max-width: 62ch; }
+.prose strong { color: var(--ink); }
+.tbl { width: 100%; border-collapse: collapse; font-size: 13.5px; margin: 14px 0; }
+.tbl th {
+  text-align: left; font-family: var(--mono); font-size: 10.5px;
+  letter-spacing: .06em; text-transform: uppercase; color: var(--ink-3);
+  padding: 8px 10px; border-bottom: 1px solid var(--rule);
+}
+.tbl td { padding: 8px 10px; border-bottom: 1px solid var(--rule); color: var(--ink-2); }
+.tbl tbody tr:last-child td { border-bottom: none; }
+.calib-link { margin-top: 22px; font-size: 14px; }
+.calib-link a { color: var(--accent); font-weight: 600; }
+
+/* ---------- toast ---------- */
+.toast {
+  position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%);
+  background: var(--ink); color: var(--ground);
+  padding: 11px 18px; border-radius: var(--radius);
+  font-size: 14px; max-width: 90vw; z-index: 50;
+  box-shadow: 0 8px 28px -10px rgba(0,0,0,.5);
+}
+
+/* ---------- spectrum canvas (calibration) ---------- */
+.spectrum {
+  width: 100%; height: 220px; display: block;
+  border: 1px solid var(--rule); border-radius: var(--radius);
+  background: var(--surface); margin: 16px 0;
+}
+.legend {
+  display: flex; gap: 16px; flex-wrap: wrap;
+  font-family: var(--mono); font-size: 11.5px; color: var(--ink-3);
+}
+.legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 5px; }
+
+@media (max-width: 560px) {
+  main { padding: 18px 14px 60px; }
+  .card { padding: 18px 16px; }
+  .brand, .tabs { padding-left: 14px; padding-right: 14px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; animation: none !important; }
+}

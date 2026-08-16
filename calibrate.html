@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Device check — Sonar Transfer</title>
+<meta name="theme-color" content="#0e1319">
+<link rel="stylesheet" href="./src/ui/styles.css">
+</head>
+<body>
+
+<header class="top">
+  <div class="brand">
+    <svg class="logo" viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M3 12h2l2-5 3 10 3-13 3 16 2-8h3" fill="none" stroke="currentColor" stroke-width="1.6"
+            stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    <span>Device check</span>
+  </div>
+  <nav class="tabs">
+    <a class="tab" href="./index.html">← Back to transfers</a>
+  </nav>
+</header>
+
+<main>
+  <div class="card">
+    <h2>What can this device actually do?</h2>
+    <p class="lead">Plays a sweep through the speaker and listens with the microphone, then
+       measures signal quality at every frequency. Speakers and microphones vary enormously
+       up near 20&nbsp;kHz, so this is the fastest way to know what you are working with.</p>
+    <p class="hint">Set the volume to about two thirds. Keep the room quiet for a few seconds.
+       Most of the sweep is inaudible; the lower part will not be.</p>
+    <div class="actions">
+      <button class="btn btn-primary" id="runBtn">Run the check</button>
+    </div>
+  </div>
+
+  <div class="card" id="results" hidden>
+    <div class="status-head">
+      <h3 id="phase">Measuring…</h3>
+      <span class="chip" id="verdict">—</span>
+    </div>
+    <canvas class="spectrum" id="chart" width="900" height="220"></canvas>
+    <div class="legend">
+      <span><i style="background:var(--accent)"></i>Signal-to-noise ratio</span>
+      <span><i style="background:var(--warn)"></i>Ambient noise</span>
+      <span><i style="background:var(--ink-3)"></i>Usable threshold</span>
+    </div>
+    <dl class="stats" style="margin-top:18px">
+      <div><dt>Sample rate</dt><dd id="sr">—</dd></div>
+      <div><dt>Usable top</dt><dd id="top">—</dd></div>
+      <div><dt>Best band</dt><dd id="best">—</dd></div>
+      <div><dt>Est. speed</dt><dd id="speed">—</dd></div>
+    </dl>
+    <p class="note" id="notes"></p>
+  </div>
+
+  <div class="card" id="bandTable" hidden>
+    <h3 style="margin-top:0">What each band would give you</h3>
+    <table class="tbl">
+      <thead><tr><th>Band</th><th>Range</th><th>Carriers</th><th>Speed</th><th>10 MB</th></tr></thead>
+      <tbody id="bandRows"></tbody>
+    </table>
+  </div>
+</main>
+
+<div class="toast" id="toast" hidden></div>
+<script type="module" src="./src/ui/calibrate.js"></script>
+</body>
+</html>

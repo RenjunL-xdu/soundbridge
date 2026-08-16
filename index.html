@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Sonar Transfer</title>
+<meta name="description" content="Send files between devices using sound alone. No network, no pairing.">
+<meta name="theme-color" content="#0e1319">
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="stylesheet" href="./src/ui/styles.css">
+</head>
+<body>
+
+<header class="top">
+  <div class="brand">
+    <svg class="logo" viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M3 12h2l2-5 3 10 3-13 3 16 2-8h3" fill="none" stroke="currentColor" stroke-width="1.6"
+            stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    <span>Sonar Transfer</span>
+  </div>
+  <nav class="tabs" role="tablist">
+    <button class="tab is-active" role="tab" data-panel="send">Send</button>
+    <button class="tab" role="tab" data-panel="receive">Receive</button>
+    <button class="tab" role="tab" data-panel="about">How it works</button>
+  </nav>
+</header>
+
+<main>
+
+<!-- ─────────────────────────────── SEND ─────────────────────────────── -->
+<section class="panel is-active" id="panel-send">
+  <div class="card">
+    <h2>Send a file</h2>
+    <p class="lead">The two devices negotiate over sound, measure the room, and pick the
+       quietest band fast enough for the job.</p>
+
+    <label class="drop" id="drop">
+      <input type="file" id="file" hidden>
+      <span class="drop-icon" aria-hidden="true">↑</span>
+      <span class="drop-main">Choose a file</span>
+      <span class="drop-sub" id="fileInfo">or drop one here</span>
+    </label>
+
+    <div class="field">
+      <div class="field-head">
+        <label for="comfort">How loud may it get?</label>
+        <output id="comfortLabel">Audible</output>
+      </div>
+      <input type="range" id="comfort" min="0" max="3" step="1" value="2">
+      <div class="ticks"><span>Silent</span><span>Discreet</span><span>Audible</span><span>Full</span></div>
+      <p class="hint" id="comfortHint">Uses frequencies from 4 kHz up. Sounds like a soft hiss.</p>
+    </div>
+
+    <div class="field">
+      <div class="field-head">
+        <label for="budget">Finish within</label>
+        <output id="budgetLabel">5 minutes</output>
+      </div>
+      <input type="range" id="budget" min="1" max="60" step="1" value="5">
+      <p class="hint">The quietest band that meets this target wins. If none can, the fastest is used.</p>
+    </div>
+
+    <div class="actions">
+      <button class="btn btn-primary" id="sendBtn" disabled>Start sending</button>
+      <button class="btn" id="sendStop" hidden>Stop</button>
+    </div>
+  </div>
+
+  <div class="card status" id="sendStatus" hidden>
+    <div class="status-head">
+      <h3 id="sendPhase">Preparing</h3>
+      <span class="chip" id="sendBand">—</span>
+    </div>
+    <div class="bar"><div class="bar-fill" id="sendBar"></div></div>
+    <dl class="stats">
+      <div><dt>Elapsed</dt><dd id="sendElapsed">0s</dd></div>
+      <div><dt>Remaining</dt><dd id="sendEta">—</dd></div>
+      <div><dt>Rate</dt><dd id="sendRate">—</dd></div>
+      <div><dt>Chunks</dt><dd id="sendChunks">—</dd></div>
+    </dl>
+    <p class="note" id="sendNote"></p>
+  </div>
+</section>
+
+<!-- ────────────────────────────── RECEIVE ───────────────────────────── -->
+<section class="panel" id="panel-receive">
+  <div class="card">
+    <h2>Receive a file</h2>
+    <p class="lead">Start listening, then begin the transfer on the sending device.
+       Put the two within about a metre, speaker facing microphone.</p>
+    <div class="actions">
+      <button class="btn btn-primary" id="recvBtn">Start listening</button>
+      <button class="btn" id="recvStop" hidden>Stop</button>
+    </div>
+    <div class="meter" id="meterWrap" hidden>
+      <span class="meter-label">Mic</span>
+      <div class="meter-track"><div class="meter-fill" id="meterFill"></div></div>
+    </div>
+  </div>
+
+  <div class="card status" id="recvStatus" hidden>
+    <div class="status-head">
+      <h3 id="recvPhase">Listening</h3>
+      <span class="chip" id="recvBand">—</span>
+    </div>
+    <div class="bar"><div class="bar-fill" id="recvBar"></div></div>
+    <dl class="stats">
+      <div><dt>File</dt><dd id="recvName">—</dd></div>
+      <div><dt>Size</dt><dd id="recvSize">—</dd></div>
+      <div><dt>Chunks</dt><dd id="recvChunks">—</dd></div>
+      <div><dt>Link quality</dt><dd id="recvQuality">—</dd></div>
+    </dl>
+    <p class="note" id="recvNote"></p>
+    <div id="recvResult" hidden>
+      <a class="btn btn-primary" id="recvDownload" download>Save file</a>
+      <p class="note" id="recvVerify"></p>
+    </div>
+  </div>
+</section>
+
+<!-- ─────────────────────────────── ABOUT ────────────────────────────── -->
+<section class="panel" id="panel-about">
+  <div class="card prose">
+    <h2>How it works</h2>
+
+    <p>Data is carried on many simultaneous audio tones — the same idea a dial-up
+       modem or Wi-Fi uses, played through a speaker and picked up by a microphone.</p>
+
+    <h3>It measures the room first</h3>
+    <p>Before sending anything, the two devices exchange a frequency sweep. The receiver
+       measures signal quality at every frequency and reports back. Frequencies that are
+       noisy, blocked, or simply not reproduced by your speaker are dropped; the clear ones
+       carry more bits each. This is why it adapts to whatever hardware and room you have.</p>
+
+    <h3>Losing sound is fine</h3>
+    <p>Packets are encoded with a <em>fountain code</em>. The sender emits an endless stream of
+       distinct combinations, and the receiver needs any sufficient number of them — not any
+       particular ones. If someone talks, a door slams, or the phone is nudged, the transfer
+       gets slightly longer rather than failing. No retransmission requests are needed.</p>
+
+    <h3>Choosing a frequency band</h3>
+    <table class="tbl">
+      <thead><tr><th>Band</th><th>Range</th><th>Sounds like</th><th>Speed</th></tr></thead>
+      <tbody>
+        <tr><td>Silent</td><td>17.5–20 kHz</td><td>Nothing, to almost all adults</td><td>Slowest</td></tr>
+        <tr><td>Discreet</td><td>14–20 kHz</td><td>Nothing to most adults; children may hear it</td><td>Slow</td></tr>
+        <tr><td>Audible</td><td>4–20 kHz</td><td>A soft hiss</td><td>Fast</td></tr>
+        <tr><td>Full</td><td>0.4–20 kHz</td><td>A dial-up modem</td><td>Fastest</td></tr>
+      </tbody>
+    </table>
+    <p>The narrower the band, the less room there is for data. That is the whole trade:
+       silence costs speed. The app picks the quietest band that still meets your time budget.</p>
+
+    <h3>On your ears</h3>
+    <p>Transmit power is shaped by the ear's own sensitivity curve, which peaks sharply
+       around 3–4 kHz. Energy is pushed toward frequencies the ear treats as dull, so the
+       same data rate is markedly less irritating. Levels are kept well below anything
+       hazardous, bursts are ramped rather than switched on, and peaks are controlled so the
+       speaker never clips. Even so: keep the volume moderate, and note that children and
+       pets hear considerably more of this than you do.</p>
+
+    <h3>Honest limits</h3>
+    <p>Usable audio bandwidth is about 20 kHz, and only a sliver of it is inaudible. That
+       caps throughput at a few kilobytes per second. Small files — keys, configs, text,
+       documents — move in seconds. A 10 MB file is realistically tens of minutes, and the
+       app tells you the estimate before starting rather than after.</p>
+    <p><strong>Bluetooth speakers and headsets will not work.</strong> Their codecs discard
+       exactly this part of the spectrum. Use built-in speakers and microphones.</p>
+
+    <p class="calib-link"><a href="./calibrate.html">Run the device check →</a>
+       Measures what your speaker and microphone can actually reproduce.</p>
+  </div>
+</section>
+
+</main>
+
+<div class="toast" id="toast" hidden></div>
+
+<script type="module" src="./src/ui/app.js"></script>
+</body>
+</html>
