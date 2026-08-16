@@ -85,11 +85,15 @@ particular ones. Someone talking, a door slamming or a phone being nudged makes 
 slightly longer instead of breaking it, and no retransmission back-channel is needed. Measured
 recovery holds up to **85% packet loss**.
 
-**Clock drift, not noise, is the dominant impairment.** Two devices have independent crystals,
-mismatched by up to 50 ppm. That appears as a phase ramp across subcarriers, and denser
-constellations have no margin to absorb it — 8-PSK collapses by two orders of magnitude at
-50 ppm while DBPSK is untouched. Pilot-based drift tracking is what makes higher-order
-constellations usable at all.
+**Clock drift is tracked, not feared.** Two devices have independent crystals, mismatched by up
+to 50 ppm, which appears as a phase ramp across subcarriers. Pilots measure that ramp every
+symbol and rotate it out. With that in place the silent band rides out 100 ppm at QPSK without
+a single bit error; 16-QAM starts to degrade around 50 ppm.
+
+*(An earlier version of these notes called drift the dominant impairment. That was mostly a
+simulator artefact — sample-rate offset was modelled with linear interpolation, which is 5 dB
+down at 19 kHz. Switching to windowed-sinc resampling recovered 13 dB. See
+[docs/DESIGN.md](docs/DESIGN.md).)*
 
 **The cyclic prefix must clear the first reflection.** The first strong echo in a normal room
 arrives 3–5 ms after the direct path. A 2.7 ms prefix leaves an error floor that no amount of

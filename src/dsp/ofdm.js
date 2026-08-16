@@ -73,10 +73,20 @@ export function bitsPerSymbol(plan, bitLoad) {
 
 /**
  * Build one OFDM symbol (CP + body) from complex values keyed by bin.
- * PAPR reduction runs on the body before the cyclic prefix is taken, so the
- * prefix stays an exact copy of the tail.
+ *
+ * PAPR reduction is available but **off by default**, and that is a measured
+ * decision rather than an oversight. Crest factor here averages only ~3.6, so
+ * peak-normalising the burst already leaves enough headroom; clip-and-filter
+ * then buys under 0.5 dB, which is inside run-to-run noise. What it does buy is
+ * damage: whenever a symbol's natural crest exceeds the target the clipping
+ * injects in-band distortion, measured at 30% of signal RMS on one draw, and it
+ * lands on the pilots as well as the data. That put a ~17 dB ceiling on
+ * effective SNR that no channel improvement could lift, and it broke 16-QAM
+ * while leaving QPSK apparently fine.
+ *
+ * If it is ever re-enabled, keep the target above ~4.5 and re-measure EVM.
  */
-export function modulateSymbol(plan, valuesRe, valuesIm, papr = true) {
+export function modulateSymbol(plan, valuesRe, valuesIm, papr = false) {
   const { N, cp, ref, gain } = plan;
   const re = new Float64Array(N), im = new Float64Array(N);
 

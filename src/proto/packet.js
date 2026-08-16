@@ -56,12 +56,29 @@ export function buildHello(sessionId, fileSize, name) {
   return new Writer(128).u8(TYPE.HELLO).u32(sessionId).u32(fileSize).str(name).done();
 }
 
+/**
+ * One-byte SNR quantisation, covering -20..+43 dB in quarter-dB steps.
+ *
+ * Exported because both ends must agree on the *quantised* values, not the
+ * originals. The sender only ever sees what came down the wire, so a receiver
+ * that kept its raw floats would allocate bits differently on any carrier
+ * sitting near a threshold, and a bit-loading table that differs by even one
+ * carrier decodes to nothing at all.
+ */
+export function quantizeSnrDb(s) {
+  const q = Math.max(0, Math.min(255, Math.round((s + 20) * 4)));
+  return q / 4 - 20;
+}
+
+export function quantizeBands(bands) {
+  return Array.from(bands, quantizeSnrDb);
+}
+
 /** Receiver's channel report: 32 coarse band SNRs, quantised to one byte each. */
 export function buildReport(sessionId, snrBands) {
   const w = new Writer(64).u8(TYPE.REPORT).u32(sessionId).u8(snrBands.length);
   for (const s of snrBands) {
-    const q = Math.max(0, Math.min(255, Math.round((s + 20) * 4))); // -20..+43 dB
-    w.u8(q);
+    w.u8(Math.max(0, Math.min(255, Math.round((s + 20) * 4))));
   }
   return w.done();
 }

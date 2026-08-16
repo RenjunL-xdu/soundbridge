@@ -49,7 +49,11 @@ export const BANDS = [
     id: 'full',
     name: 'Full spectrum',
     blurb: 'The whole usable range. Sounds like a dial-up modem. Fastest.',
-    fLo: 400, fHi: 20000,
+    // Low edge is 800 Hz, not 400. Below that a phone or laptop driver produces
+    // almost nothing while ambient noise is at its worst, so those carriers were
+    // being allocated bits they could not carry and failed constantly. The
+    // capacity given up is about 2% of the band.
+    fLo: 800, fHi: 20000,
     N: 2048, cp: 256, pilotEvery: 8,
     shaping: 0.8,
     audible: true,

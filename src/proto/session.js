@@ -17,13 +17,22 @@ import { trainingSymbol, estimateChannel } from '../dsp/ofdm.js';
 import { taperEdges } from '../dsp/window.js';
 import { DEFAULT_GAP_DB } from '../dsp/sounder.js';
 import { FountainEncoder, FountainDecoder, planChunks } from '../fec/fountain.js';
-import { crc32, sha256, toHex } from '../fec/crc.js';
+import { sha256, toHex } from '../fec/crc.js';
 import * as pkt from './packet.js';
 
 export const CONTROL_BAND = 'silent';
 /** Payload bytes per fountain block; sized so a DATA packet fills one RS slot. */
 export const BLOCK_SIZE = 208;
-const DATA_HEADER = 6;    // type + chunkIdx(2) + esi(3)
+
+/** Cheap fingerprint of a bit-loading table, for verifying both ends agree. */
+export function tableFingerprint(plan, bitLoad) {
+  let h = 2166136261 >>> 0;
+  for (const k of plan.data) {
+    h ^= (k * 31 + (bitLoad[k] | 0)) >>> 0;
+    h = Math.imul(h, 16777619) >>> 0;
+  }
+  return h.toString(16);
+}
 
 export function makeSessionId() {
   return (Math.random() * 0xffffffff) >>> 0;
@@ -110,16 +119,23 @@ export function harvest(plan, bitLoad, symbols, samples, onQuality) {
   const det = new BurstDetector(plan);
   const layout = burstLayout(plan, symbols);
   const out = [];
+  const stats = { peaks: 0, tooLate: 0, failed: 0, ok: 0 };
   // Every preamble in arrival order, not just the loudest. A single capture
   // window routinely holds a control burst followed by several data bursts, and
   // taking only the strongest correlation silently discarded the earlier ones.
-  for (const hit of det.findAll(samples)) {
-    if (hit.index + layout.total > samples.length) continue;
+  // Real bursts cannot be closer together than one burst, so use that as the
+  // peak separation rather than the preamble length.
+  const hits = det.findAll(samples, { minSep: Math.floor(layout.total * 0.8) });
+  stats.peaks = hits.length;
+  for (const hit of hits) {
+    if (hit.index + layout.total > samples.length) { stats.tooLate++; continue; }
     const res = decodeBurst(plan, bitLoad, samples, hit.index, symbols);
-    if (!res) continue;
+    if (!res) { stats.failed++; continue; }
+    stats.ok++;
     for (const p of res.packets) out.push(p);
     if (onQuality) onQuality({ evm: res.evm, lost: res.lost, corrected: res.corrected, ratio: hit.ratio });
   }
+  out.stats = stats;
   return out;
 }
 
@@ -213,6 +229,7 @@ export class SenderSession {
       bytesPerSec: choice.bytesPerSec, eta: choice.seconds,
       etaText: formatDuration(choice.seconds), chunks: chunks.length,
       slotsPerBurst: cap.slots, metBudget: choice.metBudget,
+      bitsPerSymbol: cap.bps, symbols, table: tableFingerprint(plan, bitLoad),
     });
 
     await this.sendControl([
@@ -317,15 +334,23 @@ export class ReceiverSession {
     const s2 = audio.subarray(t0 + wide.symLen, t0 + wide.symLen * 2);
     const chan = estimateChannel(wide, s1, s2);
 
-    // condense to 32 coarse bands for the report packet
+    // Condense to 32 coarse bands for the report packet.
+    //
+    // Each band covers ~26 carriers whose SNR can span several dB, and the
+    // sender allocates bits to *every* carrier in the band from this single
+    // number. Reporting the mean therefore over-promises: carriers at the
+    // bottom of the spread get a constellation they cannot carry and fail every
+    // burst. A low percentile means whatever is allocated is supportable by
+    // essentially the whole band, which costs a little capacity and buys the
+    // difference between working and not.
     const bands = [];
     const per = Math.max(1, Math.floor(wide.carriers.length / 32));
     for (let i = 0; i < 32; i++) {
       const slice = wide.carriers.slice(i * per, (i + 1) * per);
       if (!slice.length) { bands.push(-20); continue; }
-      let acc = 0, n = 0;
-      for (const k of slice) if (isFinite(chan.snrDb[k])) { acc += chan.snrDb[k]; n++; }
-      bands.push(n ? acc / n : -20);
+      const vals = slice.map(k => chan.snrDb[k]).filter(isFinite).sort((a, b) => a - b);
+      if (!vals.length) { bands.push(-20); continue; }
+      bands.push(vals[Math.floor(vals.length * 0.2)]);
     }
     return { chan, bands, plan: wide };
   }
@@ -355,11 +380,14 @@ export class ReceiverSession {
       if (!hello) continue;
       this._emit('found', { name: hello.name, size: hello.fileSize });
 
-      // Remember exactly what we reported. Every later retransmission must
-      // repeat these same numbers, because the sender derives the shared
-      // bit-loading table from them and a differing retry would desynchronise it.
+      // Remember exactly what the sender will see: the values *after*
+      // quantisation, not the raw measurements. The sender derives the shared
+      // bit-loading table from the bytes on the wire, so keeping the originals
+      // here would silently desynchronise the two tables on every carrier near
+      // an allocation threshold. Every later retransmission repeats these same
+      // numbers for the same reason.
       const meas = this.measureWideband(audio);
-      this.reportedBands = meas ? meas.bands : new Array(32).fill(6);
+      this.reportedBands = pkt.quantizeBands(meas ? meas.bands : new Array(32).fill(6));
       await this.sendControl([pkt.buildReport(hello.sessionId, this.reportedBands)]);
     }
     if (this.abortFlag) return null;
@@ -383,7 +411,12 @@ export class ReceiverSession {
     const dbits = bitLoadFor(dplan, makeSnrLookup(this.reportedBands), planMsg.gapDb).bitLoad;
     const dsym = symbolsFor(dplan, dbits, 1.4, 1);
     if (dsym <= 0) throw new Error('negotiated band carries no usable subcarriers');
-    this._emit('plan', { band: planMsg.bandId, name: header.name, size: header.size });
+    this._emit('plan', {
+      band: planMsg.bandId, name: header.name, size: header.size,
+      compressedSize: header.compressedSize, compressed: header.compressed,
+      blockSize: header.blockSize, chunks: header.totalChunks,
+      bitsPerSymbol: burstCapacity(dplan, dbits, dsym).bps, symbols: dsym, table: tableFingerprint(dplan, dbits),
+    });
 
     // --- receive payload ----------------------------------------------------
     const chunks = planChunks(header.compressedSize, header.blockSize);
@@ -423,6 +456,10 @@ export class ReceiverSession {
 
       const nowBlocks = totalBlocks();
       if (nowBlocks > blocksSeen) { blocksSeen = nowBlocks; lastProgress = Date.now(); }
+      this._emit('window', {
+        samples: audio.length, seconds: audio.length / this.fs,
+        packets: raw.length, data: raw.filter(b => b[0] === pkt.TYPE.DATA).length, stats: raw.stats,
+      });
 
       const wantBlocks = chunks.reduce((a, c) => a + Math.ceil(c.length / header.blockSize), 0);
       this._emit('progress', {

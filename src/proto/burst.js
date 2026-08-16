@@ -234,8 +234,15 @@ export class BurstDetector {
     return { index: r.index, ratio: r.ratio };
   }
 
-  /** Every preamble in the window, in arrival order. */
-  findAll(samples, { maxPeaks = 128 } = {}) {
-    return findChirps(samples, this.ref, { minRatio: this.minRatio, maxPeaks });
+  /**
+   * Every preamble in the window, in arrival order.
+   *
+   * `minSep` should be close to a whole burst: two real bursts can never overlap,
+   * so anything nearer than that is a sidelobe. Separating only by the preamble
+   * length instead let a packed window generate hundreds of spurious peaks,
+   * which then exhausted the peak cap before any genuine burst was reached.
+   */
+  findAll(samples, { maxPeaks = 64, minSep = null } = {}) {
+    return findChirps(samples, this.ref, { minRatio: this.minRatio, maxPeaks, minSep });
   }
 }

@@ -35,7 +35,10 @@ export function allocateBits(plan, snrDb, opts = {}) {
   // 256-QAM needs ~28 dB of genuinely reliable SNR. Over a real acoustic path
   // the channel estimate is never that trustworthy, so 64-QAM is the ceiling.
   const maxBits = opts.maxBits ?? 6;
-  const marginDb = opts.marginDb ?? 0;
+  // The sounding and the payload bursts see independent noise, so a table fitted
+  // exactly to one instant's measurement over-allocates the marginal carriers.
+  // A couple of dB absorbs that estimation error.
+  const marginDb = opts.marginDb ?? 2;
 
   const bitLoad = new Int8Array(plan.N);
   let totalBits = 0, used = 0, dropped = 0;
@@ -72,58 +75,4 @@ export function goodputBps(plan, totalBits, {
 } = {}) {
   const rawBps = totalBits * plan.symbolRate;
   return (rawBps * codeRate * burstEfficiency) / fountainOverhead / 8;
-}
-
-/**
- * Flag subcarriers sitting under narrowband interference.
- *
- * Real rooms contain ultrasonic motion sensors, rodent repellers and switching
- * supplies that park a strong tone in one bin. Those carriers look fine to a
- * plain SNR test during a quiet moment and then fail constantly, so we compare
- * each bin against its neighbours and drop outliers.
- */
-export function rejectInterferers(plan, noise, bitLoad, factorDb = 9) {
-  const kill = [];
-  const arr = plan.data;
-  for (let i = 0; i < arr.length; i++) {
-    const k = arr[i];
-    const neigh = [];
-    for (let d = -4; d <= 4; d++) {
-      if (d === 0) continue;
-      const j = arr[i + d];
-      if (j !== undefined && noise[j] > 0) neigh.push(noise[j]);
-    }
-    if (neigh.length < 3) continue;
-    neigh.sort((a, b) => a - b);
-    const med = neigh[neigh.length >> 1];
-    if (med > 0 && noise[k] / med > Math.pow(10, factorDb / 10)) {
-      bitLoad[k] = 0;
-      kill.push(k);
-    }
-  }
-  return kill;
-}
-
-/** Human-readable summary for the UI and the calibration page. */
-export function describeChannel(plan, snrDb, alloc) {
-  const bands = [];
-  const step = Math.max(1, Math.floor(plan.carriers.length / 16));
-  for (let i = 0; i < plan.carriers.length; i += step) {
-    const slice = plan.carriers.slice(i, i + step);
-    let acc = 0, n = 0;
-    for (const k of slice) { if (isFinite(snrDb[k])) { acc += snrDb[k]; n++; } }
-    bands.push({
-      fLo: slice[0] * plan.binHz,
-      fHi: slice[slice.length - 1] * plan.binHz,
-      snrDb: n ? acc / n : -99,
-    });
-  }
-  return {
-    bands,
-    used: alloc.used,
-    dropped: alloc.dropped,
-    medianSnr: alloc.medianSnr,
-    bitsPerSymbol: alloc.totalBits,
-    symbolRate: plan.symbolRate,
-  };
 }

@@ -88,6 +88,38 @@ function gauss() {
 }
 
 /**
+ * Windowed-sinc resampling, used to model sample-clock mismatch.
+ *
+ * Linear interpolation is not good enough here and actively misleads. Its
+ * response at 19 kHz against a 48 kHz rate is down about 5 dB with substantial
+ * aliasing, which lands precisely on the near-ultrasonic band and made clock
+ * drift look far more damaging than it is. A real ADC running slightly fast or
+ * slow performs an ideal resampling, so the model has to approximate one.
+ */
+const SINC_HALF = 16;
+function resample(src, ratio) {
+  const n = Math.floor(src.length / ratio);
+  const out = new Float64Array(n);
+  for (let i = 0; i < n; i++) {
+    const p = i * ratio;
+    const i0 = Math.floor(p);
+    const frac = p - i0;
+    let acc = 0;
+    for (let j = -SINC_HALF + 1; j <= SINC_HALF; j++) {
+      const idx = i0 + j;
+      if (idx < 0 || idx >= src.length) continue;
+      const x = j - frac;
+      const s = Math.abs(x) < 1e-9 ? 1 : Math.sin(Math.PI * x) / (Math.PI * x);
+      const t = (x + SINC_HALF) / (2 * SINC_HALF);
+      const w = 0.42 - 0.5 * Math.cos(2 * Math.PI * t) + 0.08 * Math.cos(4 * Math.PI * t);
+      acc += src[idx] * s * w;
+    }
+    out[i] = acc;
+  }
+  return out;
+}
+
+/**
  * Room-shaped ambient noise of the given broadband RMS.
  *
  * The shaped noise pool is generated and filtered once, then sampled at random
@@ -135,16 +167,7 @@ export function through(sig, fs, opts = {}) {
 
   if (device) src = Float64Array.from(filterSpectral(src, fs, deviceResponseDb));
 
-  if (ppm) {
-    const r = 1 + ppm / 1e6;
-    const n = Math.floor(src.length / r);
-    const out = new Float64Array(n);
-    for (let i = 0; i < n; i++) {
-      const p = i * r, i0 = Math.floor(p), f = p - i0;
-      out[i] = (src[i0] || 0) * (1 - f) + (src[i0 + 1] || 0) * f;
-    }
-    src = out;
-  }
+  if (ppm) src = resample(src, 1 + ppm / 1e6);
 
   const taps = Array.isArray(room) ? room : roomFor(room, fs);
   const maxD = Math.max(...taps.map(t => t[0]));

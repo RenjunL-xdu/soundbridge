@@ -44,15 +44,26 @@ self.addEventListener('activate', (e) => {
   );
 });
 
+// Network first, falling back to cache.
+//
+// Cache-first is the usual choice for an offline app, but it strands users on
+// whatever code they first loaded: after a deploy the browser keeps serving the
+// old modules and the app silently runs a stale version. These files are small,
+// so preferring the network when one is available costs little and guarantees
+// the code matches the site. Offline still works entirely from cache, which is
+// the property that actually matters here.
 self.addEventListener('fetch', (e) => {
   if (e.request.method !== 'GET') return;
+  const sameOrigin = new URL(e.request.url).origin === self.location.origin;
   e.respondWith(
-    caches.match(e.request).then(hit => hit || fetch(e.request).then(res => {
-      if (res.ok && new URL(e.request.url).origin === self.location.origin) {
-        const copy = res.clone();
-        caches.open(CACHE).then(c => c.put(e.request, copy));
-      }
-      return res;
-    }).catch(() => hit))
+    fetch(e.request)
+      .then(res => {
+        if (res.ok && sameOrigin) {
+          const copy = res.clone();
+          caches.open(CACHE).then(c => c.put(e.request, copy));
+        }
+        return res;
+      })
+      .catch(() => caches.match(e.request).then(hit => hit || Promise.reject(new Error('offline'))))
   );
 });

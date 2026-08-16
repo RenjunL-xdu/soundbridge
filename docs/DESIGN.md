@@ -32,20 +32,50 @@ to −10 dB SNR**, with worst-case timing error of 9 samples (0.19 ms). Sweeping
 energy so correlation gain, not raw amplitude, does the work. It is the highest-leverage
 component in the system and also what lets a receiver join a transmission already in progress.
 
-### Clock drift, not noise, is the dominant impairment
+### Clock drift matters, but far less than first measured
 
-Raw BER at 25 dB SNR, office acoustics, sweeping only the crystal mismatch:
+Raw BER against crystal mismatch, office acoustics, noise 0.006, silent band:
 
-| Modulation | 0 ppm | 5 ppm | 20 ppm | 50 ppm | 100 ppm |
+| Modulation | 0 ppm | 20 ppm | 50 ppm | 100 ppm | 200 ppm |
 |---|---|---|---|---|---|
-| DBPSK N=2048 CP=512 | 0 | 0 | 0 | 1.7e−4 | 4.1e−2 |
-| DQPSK N=1024 CP=256 | 0 | 0 | 0 | 8.3e−4 | 5.2e−2 |
-| D8PSK N=1024 CP=256 | 0 | 0 | 4.7e−4 | 4.4e−2 | 2.0e−1 |
+| QPSK | 0 | 0 | 0 | 0 | 7.1e−3 |
+| 16-QAM | 0 | 0 | 4.7e−3 | 1.3e−2 | 1.1e−1 |
 
-Every scheme is perfect with matched clocks. Drift accumulates as a phase ramp across
-subcarriers, and the denser the constellation the less margin there is to absorb it — D8PSK's
-decision boundary is π/8 and drift eats nearly half of it. Hence pilot-derived timing-slope
-correction in `demodulateSymbol`, without which nothing above QPSK is usable.
+**This corrects an earlier conclusion.** The first version of this document claimed clock drift
+was *the* dominant impairment, on the strength of numbers that showed 8-PSK collapsing two
+orders of magnitude at 50 ppm. That was largely an artefact of the simulator: it modelled
+sample-rate offset with linear interpolation, whose response at 19 kHz against a 48 kHz rate
+is down about 5 dB with substantial aliasing — landing precisely on the near-ultrasonic band.
+A real ADC running slightly fast or slow performs an ideal resampling. Replacing the model with
+windowed-sinc interpolation recovered **13 dB** at 20 ppm, and the silent band now rides out
+100 ppm at QPSK without a single bit error.
+
+Drift is still worth tracking: 16-QAM starts to degrade around 50 ppm, and pilot-derived
+timing-slope correction in `demodulateSymbol` is what keeps the denser constellations usable.
+It is simply not the wall it first appeared to be.
+
+### Peak-to-average reduction was doing more harm than good
+
+Clip-and-filter PAPR reduction is standard practice for OFDM and was enabled by default. It is
+now off, because measurement did not support it:
+
+| | value |
+|---|---|
+| Mean crest factor, unclipped | ~3.6 |
+| Headroom gained by clipping to 4.0 | under 0.5 dB, inside run-to-run noise |
+| Distortion injected when a symbol's natural crest exceeded the target | ~30% of signal RMS |
+| Resulting ceiling on effective SNR | ~17 dB, regardless of channel |
+
+Because crest averages 3.6, peak-normalising the burst already leaves adequate headroom, and
+clipping only engages on the minority of symbols that happen to peak higher. Those symbols were
+then badly distorted — on the pilots as well as the data, so the phase-tracking fit degraded
+too. The failure mode was insidious: QPSK still decoded perfectly, so the link looked healthy,
+while every 16-QAM carrier failed. The ceiling was invisible until effective SNR (from EVM) was
+compared against the SNR the channel estimator was reporting; the two disagreed by 9 dB.
+
+With clipping disabled, an ideal loopback gives **exactly zero** EVM, and reported and measured
+SNR agree to within about 1 dB (20.9 dB against 21.9 dB on a real desk channel). That agreement
+is the signal that the model and the demodulator are both honest.
 
 ### The cyclic prefix must clear the first reflection
 
