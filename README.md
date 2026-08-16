@@ -17,15 +17,30 @@ band that is still fast enough for the file.
 
 Four bands, from silent to fast:
 
-| Band | Range | Sounds like | Typical speed |
-|---|---|---|---|
-| **Silent** | 17.5–20 kHz | Nothing, to essentially all adults | ~250 B/s |
-| **Discreet** | 14–20 kHz | Nothing to most adults; children may hear it | ~750 B/s |
-| **Audible** | 4–20 kHz | A soft hiss | ~2 kB/s |
-| **Full** | 0.4–20 kHz | A dial-up modem | ~2.5 kB/s |
+| Band | Range | Sounds like | Desk, 0.3 m | Office, 1.5 m |
+|---|---|---|---|---|
+| **Silent** | 17.5–20 kHz | Nothing, to essentially all adults | 297 B/s | 206 B/s |
+| **Discreet** | 14–20 kHz | Nothing to most adults; children may hear it | 785 B/s | 639 B/s |
+| **Audible** | 4–20 kHz | A soft hiss | 2823 B/s | 1627 B/s |
+| **Full** | 0.8–20 kHz | A dial-up modem | 3284 B/s | 1701 B/s |
 
-Speeds are measured against a simulated office at 1.5 m with realistic noise; close range and
-a quiet room do considerably better.
+Measured against the channel simulator, including coding overhead. Distance matters more than
+anything else you can control.
+
+### How long a 10 MB file really takes
+
+| | Silent | Discreet | Audible | Full |
+|---|---|---|---|---|
+| **Desk, 0.3 m, quiet** | 11 h | 4.2 h | 69 min | **59 min** |
+| **Office, 1.5 m** | 16 h | 5.1 h | 2.0 h | **1.9 h** |
+| **Living room, 3 m** | 38 h | 8.1 h | 3.1 h | **3.0 h** |
+| **Hall, 5 m, noisy** | 96 h | 14 h | 6.0 h | **5.7 h** |
+
+So: **10 MB is about an hour with the devices close together and the audible band allowed, and
+roughly two hours across a desk.** It works, and it will finish, but it is not quick. If the
+file compresses — text, JSON, logs, most documents — it goes proportionally faster, because
+gzip runs before anything is transmitted. Under about 100 KB the whole thing is comfortable;
+past a few megabytes you are committing the room to a long noise for a while.
 
 ## Honest limits
 
@@ -35,9 +50,11 @@ Read this part before expecting too much.
   of it is inaudible. Shannon caps a 2.5 kHz channel near 10 kbps even at generous SNR. Better
   codes buy a factor, not an order of magnitude.
 - **Small files are the sweet spot.** Keys, configs, URLs, contact cards, text and documents
-  move in seconds. A 10 MB file is realistically tens of minutes on the fastest band. The app
-  estimates the time before starting and tells you.
+  move in seconds. See the table above for what large files actually cost. The app measures the
+  room and tells you the estimate *before* it starts, not after.
 - **Compressible files go much faster** — gzip runs before transmission.
+- **Distance dominates.** Going from 0.3 m to 3 m costs roughly 3× the time. Put the devices
+  close together, speaker facing microphone.
 - **Bluetooth speakers and headsets will not work at all.** SBC, AAC and Opus discard exactly
   this part of the spectrum. Use built-in speakers and microphones.
 - **"Inaudible" is statistical, not physical.** Plenty of children and teenagers hear 17.5–18 kHz

@@ -246,7 +246,17 @@ export class SenderSession {
     const done = new Set();
     const esi = chunks.map(c => 0);
     let burstsSinceAck = 0;
-    const ACK_EVERY = 8;
+    // How often to pause and collect acknowledgements.
+    //
+    // An acknowledgement round costs a control burst plus a listen — roughly
+    // 3.8 s against 1.36 s for a data burst — so acknowledging every 8 bursts
+    // adds about 35% overhead, which is the difference between two hours and
+    // three on a large file. A fountain sender does not need frequent feedback:
+    // its only uses are retiring finished chunks and knowing when to stop. With
+    // many chunks in flight, retiring one late wastes very little, so large
+    // transfers acknowledge rarely. Small ones still check often, because there
+    // the only thing that matters is stopping promptly once the file is through.
+    const ACK_EVERY = chunks.length <= 2 ? 6 : 24;
     const t0 = Date.now();
     // A fountain sender would otherwise transmit forever if every ACK is lost.
     const hardDeadline = t0 + (this.budgetSec * 4 + 120) * 1000;

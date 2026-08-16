@@ -170,8 +170,23 @@ sized by whole codewords rather than by duration: BPSK on the narrow control ban
 
 ## 5. Known limits and things not done
 
-- **Throughput is capped by physics.** ~2.5 kB/s on the fastest band in an office. 10 MB is
-  tens of minutes. No amount of coding changes the order of magnitude.
+- **Throughput is capped by physics.** Measured goodput, including coding overhead:
+
+  | | Silent | Discreet | Audible | Full |
+  |---|---|---|---|---|
+  | Desk, 0.3 m, quiet | 297 B/s | 785 B/s | 2823 B/s | 3284 B/s |
+  | Office, 1.5 m | 206 B/s | 639 B/s | 1627 B/s | 1701 B/s |
+  | Living room, 3 m | 85 B/s | 403 B/s | 1041 B/s | 1099 B/s |
+  | Hall, 5 m, noisy | 34 B/s | 226 B/s | 546 B/s | 574 B/s |
+
+  That puts 10 MB at about an hour at close range on the full band and two hours across a desk.
+  No amount of coding changes the order of magnitude — the band is 20 kHz wide and that is that.
+
+- **Acknowledgement rounds are surprisingly expensive.** A control burst plus a listen costs
+  ~3.8 s against 1.36 s for a data burst, because control always runs BPSK on the narrow silent
+  band. Acknowledging every 8 bursts added ~35% overhead; large transfers now acknowledge every
+  24. Moving acknowledgements onto the negotiated data band would recover most of the rest, at
+  the cost of making the back-channel audible whenever the forward channel is.
 - **No encryption yet.** Sound is a broadcast medium and anyone in the room can record it. The
   intended design is X25519 key agreement with a four-digit short-authentication-string shown
   on both screens, and AES-256-GCM payloads; the packet format reserves room for it but it is
