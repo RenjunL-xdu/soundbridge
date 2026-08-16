@@ -225,6 +225,15 @@ sized by whole codewords rather than by duration: BPSK on the narrow control ban
   intended design is X25519 key agreement with a four-digit short-authentication-string shown
   on both screens, and AES-256-GCM payloads; the packet format reserves room for it but it is
   not implemented.
+- **Bit loading over-allocates in loud rooms.** Above roughly 0.03 broadband noise RMS the
+  sounding's own SNR estimate becomes unreliable enough that marginal carriers get
+  constellations they cannot carry, and slot delivery collapses even though the allocation has
+  dropped. Real transfers still complete — band selection escalates and the fountain absorbs
+  the losses, which is why the noisy-hall transfer passes — but airtime is wasted. A margin
+  that grows as measured SNR falls was tried and *not* adopted: it barely changed the
+  allocation, because most carriers sit above the threshold where it would engage, and the
+  apparent improvement was inside run-to-run variance. The honest fix is probably averaging
+  more training symbols before allocating, rather than guessing at a margin.
 - **Bluetooth audio cannot work.** Codecs discard this spectrum entirely.
 - **A rate-compatible inner code would help.** Reed-Solomon is hard-decision only; a soft-decision
   convolutional or LDPC inner code would buy several dB and allow denser constellations at the
