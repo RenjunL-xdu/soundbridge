@@ -86,9 +86,16 @@ export function controlSetup(fs) {
   const plan = buildPlan(bandById(CONTROL_BAND), fs);
   const bitLoad = new Int8Array(plan.N);
   for (const k of plan.data) bitLoad[k] = 1;   // BPSK: maximum robustness
-  // Sized by codewords, not seconds: BPSK here is slow enough that a
-  // duration-based burst would not hold a single complete codeword.
-  const symbols = symbolsForSlots(plan, bitLoad, 2);
+  // One codeword per burst, not two.
+  //
+  // Sized by codewords rather than seconds, because BPSK here is slow enough
+  // that a duration-based burst would not hold a single complete codeword. Two
+  // slots made the burst 2.51 s long, which is a serious problem for discovery:
+  // a receiver has to capture a burst *whole*, and a burst that long leaves no
+  // margin at all against capture timing. One slot halves it to ~1.34 s.
+  // Multi-packet sends simply become multiple bursts; sendControl already
+  // handles that.
+  const symbols = symbolsForSlots(plan, bitLoad, 1);
   return { plan, bitLoad, symbols };
 }
 
@@ -205,7 +212,11 @@ export class SenderSession {
       this._emit('handshake', { attempt });
       await this.sendControl([pkt.buildHello(this.sessionId, data.length, name)]);
       await this.sendSounding();
-      const replies = await this.listenControl(2.0);
+      // Listen generously. The far end has to notice the announcement, measure
+      // the channel and compose a reply, and none of that is instant on a phone.
+      // A window narrower than that work simply misses the answer and burns
+      // another attempt.
+      const replies = await this.listenControl(3.0);
       const report = replies.find(r => r.type === pkt.TYPE.REPORT && r.sessionId === this.sessionId);
       if (!report) continue;
       sawReceiver = true;
@@ -420,8 +431,22 @@ export class ReceiverSession {
         this._emit('timeout', { phase: 'discovery' });
         return null;
       }
-      const audio = await this.t.listen(2.5);
-      const packets = harvest(cplan, cbits, csym, audio).map(pkt.parse).filter(Boolean);
+      // Short poll: capture is continuous underneath, so this only controls how
+      // often we look, not how much we hear.
+      const audio = await this.t.listen(1.2);
+      const raw = harvest(cplan, cbits, csym, audio);
+      // Report what the microphone actually produced, every cycle. Without this
+      // a failed handshake is completely opaque: you cannot tell "heard nothing
+      // at all" (wrong band, muted mic, Bluetooth) from "heard a burst but could
+      // not decode it" (too far, too noisy, level too low), and those need
+      // opposite fixes.
+      this._emit('scan', {
+        seconds: audio.length / this.fs,
+        peaks: raw.stats.peaks,
+        decoded: raw.stats.ok,
+        failed: raw.stats.failed,
+      });
+      const packets = raw.map(pkt.parse).filter(Boolean);
       hello = packets.find(p => p.type === pkt.TYPE.HELLO);
       if (!hello) continue;
       this._emit('found', { name: hello.name, size: hello.fileSize });

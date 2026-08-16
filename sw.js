@@ -1,7 +1,9 @@
 // Offline cache. The whole point of an acoustic link is working without a
 // network, so the app itself must not need one after the first visit.
 
-const CACHE = 'sonar-transfer-v1';
+// Bump on every release. Devices that installed an earlier, cache-first worker
+// keep serving whatever they cached until the cache name changes.
+const CACHE = 'sonar-transfer-v2';
 const ASSETS = [
   './',
   './index.html',

@@ -22,12 +22,33 @@ export const MIC_CONSTRAINTS = {
   channelCount: 1,
 };
 
+/**
+ * How much previously-returned audio to prepend to the next capture window.
+ *
+ * Must exceed the longest burst, or a burst straddling the boundary between two
+ * windows is torn in half and lost by both. Duplicated audio is harmless: repeat
+ * packets are idempotent at every layer above.
+ */
+export const CAPTURE_OVERLAP_SEC = 2.0;
+
 export class AudioIO {
   constructor({ onLevel } = {}) {
     this.ctx = null;
     this.stream = null;
     this.node = null;
-    this.buffer = [];
+    // Capture is continuous. Frames accumulate here from the moment the
+    // microphone opens and are only drained by listen(), never discarded.
+    //
+    // The previous design captured for a fixed window, then threw away
+    // everything that arrived while the DSP was running. Two independently
+    // free-running devices then had to coincidentally align their transmit and
+    // receive phases, which they do not. Worse, the microphone callback fires on
+    // the main thread: if the main thread is mid-FFT the messages simply queue
+    // and arrive later, so accumulating them loses nothing even when processing
+    // overruns.
+    this.pending = [];
+    this.pendingLen = 0;
+    this.tail = null;
     this.capturing = false;
     this.onLevel = onLevel;
     this.gain = 0.7;
@@ -58,7 +79,7 @@ export class AudioIO {
     });
     this.node.port.onmessage = (e) => {
       const frame = e.data;
-      if (this.capturing) this.buffer.push(frame);
+      if (this.capturing) { this.pending.push(frame); this.pendingLen += frame.length; }
       if (this.onLevel) {
         let peak = 0;
         for (let i = 0; i < frame.length; i++) { const a = Math.abs(frame[i]); if (a > peak) peak = a; }
@@ -66,6 +87,7 @@ export class AudioIO {
       }
     };
     src.connect(this.node);
+    this.capturing = true;   // start listening the moment the microphone opens
   }
 
   async stop() {
@@ -98,33 +120,48 @@ export class AudioIO {
     src.buffer = buf;
     src.connect(ctx.destination);
 
-    this.setCapture(false);
+    // Stop listening while we talk, and discard the overlap: our own burst
+    // leaks into it and would be decoded back as if the far end had sent it.
+    this.capturing = false;
+    this.pending = []; this.pendingLen = 0; this.tail = null;
+
     const done = new Promise(res => { src.onended = res; });
     src.start();
     await done;
-    // let the room's reverb tail decay before we trust the microphone again
-    await new Promise(r => setTimeout(r, 60));
-    this.setCapture(true);
-  }
-
-  setCapture(on) {
-    this.capturing = on;
-    if (this.node) this.node.port.postMessage({ enabled: true });
-    if (on) this.buffer = [];
-  }
-
-  /** Capture for `seconds` and return the samples as a Float64Array. */
-  async listen(seconds) {
-    this.buffer = [];
+    // let the room's reverb tail decay before trusting the microphone again
+    await new Promise(r => setTimeout(r, 80));
+    this.pending = []; this.pendingLen = 0;
     this.capturing = true;
-    await new Promise(r => setTimeout(r, seconds * 1000));
-    const parts = this.buffer;
-    this.buffer = [];
-    let total = 0;
-    for (const p of parts) total += p.length;
-    const out = new Float64Array(total);
-    let o = 0;
+  }
+
+  /**
+   * Return everything heard since the last call, waiting until at least
+   * `seconds` of fresh audio has arrived.
+   *
+   * The returned window is deliberately longer than `seconds`: it carries an
+   * overlap from the previous window so a burst spanning the join survives, and
+   * it includes anything that piled up while the caller was busy decoding.
+   */
+  async listen(seconds) {
+    this.capturing = true;
+    const need = Math.round(seconds * this.sampleRate);
+    while (this.pendingLen < need) {
+      await new Promise(r => setTimeout(r, 25));
+      if (!this.ctx) return new Float64Array(0);   // stopped mid-wait
+    }
+
+    const parts = this.pending;
+    const fresh = this.pendingLen;
+    this.pending = []; this.pendingLen = 0;
+
+    const tailLen = this.tail ? this.tail.length : 0;
+    const out = new Float64Array(tailLen + fresh);
+    if (this.tail) out.set(this.tail, 0);
+    let o = tailLen;
     for (const p of parts) { out.set(p, o); o += p.length; }
+
+    const keep = Math.min(out.length, Math.round(CAPTURE_OVERLAP_SEC * this.sampleRate));
+    this.tail = out.slice(out.length - keep);
     return out;
   }
 }

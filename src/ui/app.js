@@ -173,6 +173,8 @@ $('recvBtn').addEventListener('click', async () => {
   $('recvNote').className = 'note';
   if (recvUrl) { URL.revokeObjectURL(recvUrl); recvUrl = null; }
 
+  let scans = 0, heardPeaks = 0;
+
   try {
     recvIO = new AudioIO({
       onLevel: (peak) => {
@@ -185,8 +187,29 @@ $('recvBtn').addEventListener('click', async () => {
     recvSession = new ReceiverSession(recvIO, {
       fs: recvIO.sampleRate,
       onEvent: (e) => {
-        if (e.type === 'found') {
+        if (e.type === 'scan') {
+          scans++;
+          heardPeaks += e.peaks;
+          $('recvPhase').textContent = 'Listening…';
+          $('recvQuality').textContent = heardPeaks === 0
+            ? 'nothing heard yet'
+            : `${heardPeaks} signal${heardPeaks === 1 ? '' : 's'} heard`;
+          $('recvChunks').textContent = `scan ${scans}`;
+          if (scans === 6 && heardPeaks === 0) {
+            $('recvNote').textContent =
+              'Six scans with nothing detected. Check the sending device is transmitting, ' +
+              'its volume is up, neither device is on Bluetooth audio, and they are within a metre.';
+            $('recvNote').className = 'note warn';
+          } else if (heardPeaks > 0 && e.decoded === 0 && scans > 4) {
+            $('recvNote').textContent =
+              'Signal is being heard but not decoded — likely too quiet or too far. ' +
+              'Move the devices closer and raise the sending volume.';
+            $('recvNote').className = 'note warn';
+          }
+        } else if (e.type === 'found') {
           $('recvPhase').textContent = 'Sender found — measuring the room';
+          $('recvNote').textContent = '';
+          $('recvNote').className = 'note';
           $('recvName').textContent = e.name;
           $('recvSize').textContent = fmtBytes(e.size);
         } else if (e.type === 'plan') {

@@ -24,6 +24,10 @@ jobs:
           node-version: '20'
       # The DSP is verified against a simulated acoustic channel, so the whole
       # signal path is exercised in CI with no audio hardware involved.
+      # Pure arithmetic, no simulation: catches burst/capture-window mismatches
+      # that every signal-level test happily passes through.
+      - name: Burst timing vs capture windows
+        run: node test/timing.test.mjs
       - name: Reed-Solomon
         run: node test/rs.test.mjs
       - name: Fountain code

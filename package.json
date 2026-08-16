@@ -5,9 +5,10 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "test": "node test/rs.test.mjs && node test/fountain.test.mjs && node test/burst.test.mjs",
+    "test": "node test/timing.test.mjs && node test/rs.test.mjs && node test/fountain.test.mjs && node test/burst.test.mjs",
     "test:rs": "node test/rs.test.mjs",
     "test:fountain": "node test/fountain.test.mjs",
+    "test:timing": "node test/timing.test.mjs",
     "test:modem": "node test/burst.test.mjs",
     "test:transfer": "node test/transfer.test.mjs",
     "serve": "python -m http.server 8000"
