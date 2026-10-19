@@ -1,6 +1,6 @@
 // 离线缓存：第一次加载后，即使没有互联网也能打开和使用声桥。
 
-const CACHE = 'soundbridge-v1';
+const CACHE = 'soundbridge-v2';
 const ASSETS = [
   './',
   './index.html',

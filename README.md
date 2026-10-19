@@ -2,6 +2,8 @@
 
 **不用网络，不用蓝牙配对，用声音在两台设备之间传文件。**
 
+**在线使用：<https://renjunl-xdu.github.io/soundbridge/>**
+
 声桥是一个纯浏览器 PWA。接收端打开麦克风，发送端选择文件并播放，文件会被编码成数百个同时发声的频率，穿过空气后再由接收端拼回原文件。页面可以安装到手机桌面，首次加载完成后可离线使用。
 
 传输核心基于 GitHub 上的 [Sonar Transfer](https://github.com/Shreevallabhadatt/sonar-transfer) MIT 开源实现；本项目完成了中文界面、移动端布局、安装提示、防息屏、设备自检、分享与保存流程。
