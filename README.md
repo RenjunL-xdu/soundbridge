@@ -1,160 +1,125 @@
-# Sonar Transfer
+# 声桥 SoundBridge
 
-**→ [shreevallabhadatt.github.io/sonar-transfer](https://shreevallabhadatt.github.io/sonar-transfer/)**
+**不用网络，不用蓝牙配对，用声音在两台设备之间传文件。**
 
-Send files between two devices using **sound alone**. No network, no Bluetooth, no pairing,
-no accounts. A phone and a laptop in the same room can move a file between them with nothing
-but a speaker and a microphone.
+声桥是一个纯浏览器 PWA。接收端打开麦克风，发送端选择文件并播放，文件会被编码成数百个同时发声的频率，穿过空气后再由接收端拼回原文件。页面可以安装到手机桌面，首次加载完成后可离线使用。
 
-Runs entirely in the browser as a static page, so GitHub Pages is enough to host it. Open the
-link on both devices, press **Receive** on one and **Send** on the other. Run the
-[device check](https://shreevallabhadatt.github.io/sonar-transfer/calibrate.html) first on any
-new pair — speaker and microphone response above 17 kHz varies enormously.
+传输核心基于 GitHub 上的 [Sonar Transfer](https://github.com/Shreevallabhadatt/sonar-transfer) MIT 开源实现；本项目完成了中文界面、移动端布局、安装提示、防息屏、设备自检、分享与保存流程。
 
----
+<p align="center">
+  <img src="docs/preview-mobile.png" alt="声桥手机界面" width="330">
+</p>
 
-## What this actually is
+## 功能
 
-Data is carried on hundreds of simultaneous audio tones — the same idea a dial-up modem or
-Wi-Fi uses — played through a speaker and decoded from a microphone. The two devices talk to
-each other first: they measure the room, agree which frequencies work, and pick the quietest
-band that is still fast enough for the file.
+- 两台设备、一个浏览器页面即可完成传输，无需账号或服务器
+- 自动测量房间和设备频响，在“极静 / 轻声 / 清晰 / 极速”之间选择数据频段
+- OFDM 多载波传输、Reed–Solomon 纠错、喷泉码丢包恢复
+- 发送前自动 gzip 压缩可压缩文件
+- 移动端 PWA，可安装、可离线打开
+- 长传输自动请求屏幕常亮
+- 接收后显示 SHA-256 完整性校验，可保存或调用系统分享
+- 内置设备声音自检，提前发现不支持高频的麦克风或扬声器
 
-Four bands, from silent to fast:
+## 快速开始
 
-| Band | Range | Sounds like | Desk, 0.3 m | Office, 1.5 m |
-|---|---|---|---|---|
-| **Silent** | 17.5–20 kHz | Nothing, to essentially all adults | 297 B/s | 206 B/s |
-| **Discreet** | 14–20 kHz | Nothing to most adults; children may hear it | 785 B/s | 639 B/s |
-| **Audible** | 4–20 kHz | A soft hiss | 2823 B/s | 1627 B/s |
-| **Full** | 0.8–20 kHz | A dial-up modem | 3284 B/s | 1701 B/s |
-
-Measured against the channel simulator, including coding overhead. Distance matters more than
-anything else you can control.
-
-### How long a 10 MB file really takes
-
-| | Silent | Discreet | Audible | Full |
-|---|---|---|---|---|
-| **Desk, 0.3 m, quiet** | 11 h | 4.2 h | 69 min | **59 min** |
-| **Office, 1.5 m** | 16 h | 5.1 h | 2.0 h | **1.9 h** |
-| **Living room, 3 m** | 38 h | 8.1 h | 3.1 h | **3.0 h** |
-| **Hall, 5 m, noisy** | 96 h | 14 h | 6.0 h | **5.7 h** |
-
-So: **10 MB is about an hour with the devices close together and the audible band allowed, and
-roughly two hours across a desk.** It works, and it will finish, but it is not quick. If the
-file compresses — text, JSON, logs, most documents — it goes proportionally faster, because
-gzip runs before anything is transmitted. Under about 100 KB the whole thing is comfortable;
-past a few megabytes you are committing the room to a long noise for a while.
-
-## Honest limits
-
-Read this part before expecting too much.
-
-- **Bandwidth is the hard ceiling.** Usable audio spectrum is about 20 kHz, and only a sliver
-  of it is inaudible. Shannon caps a 2.5 kHz channel near 10 kbps even at generous SNR. Better
-  codes buy a factor, not an order of magnitude.
-- **Small files are the sweet spot.** Keys, configs, URLs, contact cards, text and documents
-  move in seconds. See the table above for what large files actually cost. The app measures the
-  room and tells you the estimate *before* it starts, not after.
-- **Compressible files go much faster** — gzip runs before transmission.
-- **Distance dominates.** Going from 0.3 m to 3 m costs roughly 3× the time. Put the devices
-  close together, speaker facing microphone.
-- **Bluetooth speakers and headsets will not work at all.** SBC, AAC and Opus discard exactly
-  this part of the spectrum. Use built-in speakers and microphones.
-- **"Inaudible" is statistical, not physical.** Plenty of children and teenagers hear 17.5–18 kHz
-  clearly. Dogs and cats hear all of it.
-
-## Getting started
-
-Open the page on both devices, put them within about a metre with the speaker facing the
-microphone, then press **Receive** on one and **Send** on the other.
-
-Run the **device check** first on any new pair of devices. Speaker and microphone response
-above 17 kHz varies enormously, and the check measures what yours can actually do.
-
-Serving locally needs any static server (the microphone requires a secure context, which
-`localhost` counts as):
+环境要求：Node.js 20 或更新版本。项目没有运行时依赖。
 
 ```bash
-python -m http.server 8000
+npm start
 ```
 
-## How it works
+浏览器打开 `http://localhost:8000`。`localhost` 属于浏览器认可的安全上下文，因此本机测试可以直接使用麦克风。
 
+### 两台设备怎么用
+
+1. 接收端打开页面，进入“接收”，点击“开始监听”并允许麦克风。
+2. 发送端进入“发送”，选择文件，点击“开始发送”并允许麦克风。
+3. 把两台设备放在约 10–50 厘米处，扬声器朝向对方麦克风。
+4. 等进度完成。接收端校验通过后即可保存文件。
+
+第一次使用一对新设备时，建议两边都打开“设备自检”。
+
+## 手机上运行
+
+浏览器只允许 HTTPS 页面访问手机麦克风。因此手机不能直接打开电脑的普通局域网 HTTP 地址。推荐任选一种 HTTPS 静态托管：
+
+### GitHub Pages
+
+仓库已带有 [Pages 工作流](.github/workflows/pages.yml)，推送 `main` 分支后会先运行测试，再部署静态页面。
+
+1. 在 GitHub 新建空仓库。
+2. 将本项目推送到该仓库的 `main` 分支。
+3. 在仓库的 **Settings → Pages → Build and deployment** 中选择 **GitHub Actions**。
+4. 等工作流完成后，用两台手机打开 Pages 地址。
+
+### 其他静态托管
+
+整个项目就是静态文件，可以直接部署到 Cloudflare Pages、Netlify、Vercel 或任何支持 HTTPS 的静态服务器。无需构建命令，发布目录为项目根目录。
+
+安装到桌面：Android Chrome 使用菜单中的“安装应用”；iPhone Safari 使用“分享 → 添加到主屏幕”。
+
+## 速度与适用场景
+
+声音信道的可用带宽有限。以下为项目自带声学信道模拟器的测量结果，包含纠错与协议开销：
+
+| 模式 | 频率范围 | 近距离安静环境 | 1.5 米普通房间 |
+|---|---:|---:|---:|
+| 极静 | 17.5–20 kHz | 约 297 B/s | 约 206 B/s |
+| 轻声 | 14–20 kHz | 约 785 B/s | 约 639 B/s |
+| 清晰 | 4–20 kHz | 约 2.8 KB/s | 约 1.6 KB/s |
+| 极速 | 0.8–20 kHz | 约 3.3 KB/s | 约 1.7 KB/s |
+
+**小文件和文字类内容最合适**：密钥、配置、URL、联系人卡片、短文档通常在几秒内完成。100 KB 以内体验较舒适；几 MB 以上会变成一次持续数十分钟的传输。
+
+音频带宽是物理上限，换更好的编码只能改善一个倍数，无法变成瞬间完成。
+
+## 已知限制
+
+- 蓝牙耳机、蓝牙音箱会丢弃大量高频内容，基本无法使用。请使用设备自带扬声器和麦克风。
+- “极静”只作用于文件数据。建链和确认使用短促的控制音，因此一次传输并非全程无声。
+- “极静”不是对所有人和所有设备都真正无声。儿童、年轻人、猫狗可能听见较高频段，部分手机也无法发出或拾取 17 kHz 以上频率；此时请改用“清晰”或“极速”。
+- 距离、角度、环境噪声和回声都会影响速度。两台设备应保持静止并靠近。
+- 传输是单向的：接收端会用声音回传测量结果和确认包，但不会传输额外文件。
+- 当前版本没有端到端加密。声音是开放信道，附近设备可以录音；不要传密码、私钥或其他敏感内容。
+- iOS 会压缩后台页面。传输期间请保持页面在前台、屏幕常亮；应用会请求 Wake Lock，但系统仍可能按省电策略干预。
+
+## 技术结构
+
+```text
+文件
+ ├─ gzip（若可压缩）
+ ├─ 分块 + 喷泉码
+ ├─ Reed–Solomon 纠错与交织
+ ├─ 自适应 QAM / OFDM 调制
+ ├─ 下行 chirp 同步与信道测量
+ ├─ 扬声器 → 房间 → 麦克风
+ ├─ 匹配滤波、信道估计、导频跟踪
+ └─ 独立槽解码 → 文件重组 → SHA-256 校验
 ```
-  file
-   ├─ gzip
-   ├─ split into chunks, each fountain-coded          fec/fountain.js
-   ├─ packets → Reed-Solomon slots, interleaved       fec/reedsolomon.js
-   ├─ bits → adaptive QAM across ~700 subcarriers     dsp/qam.js, dsp/ofdm.js
-   ├─ OFDM symbols + pilots + cyclic prefix           dsp/ofdm.js
-   ├─ chirp preamble prepended                        dsp/chirp.js
-   └─ psychoacoustic shaping + peak control           dsp/psycho.js
-                             ↓  speaker → room → microphone  ↓
-   ├─ matched filter finds every preamble             dsp/chirp.js
-   ├─ training symbols give H(f) and the noise floor  dsp/ofdm.js
-   ├─ pilots track clock drift and phase              dsp/ofdm.js
-   ├─ slots decoded independently; losses are fine    fec/reedsolomon.js
-   └─ fountain decoder needs any K(1+ε) packets       fec/fountain.js
-```
 
-### Three decisions worth explaining
+核心目录：
 
-**Fountain coding, not retransmission.** The sender emits an endless stream of distinct
-combinations of the source blocks; the receiver needs *any* sufficient number of them, not any
-particular ones. Someone talking, a door slamming or a phone being nudged makes the transfer
-slightly longer instead of breaking it, and no retransmission back-channel is needed. Measured
-recovery holds up to **85% packet loss**.
+- `src/dsp/`：FFT、chirp、OFDM、QAM、心理声学增益
+- `src/fec/`：CRC、Reed–Solomon、喷泉码
+- `src/proto/`：频段规划、数据包、突发与收发会话
+- `src/audio/`：麦克风采集与扬声器播放
+- `src/ui/`：中文界面与设备自检
 
-**Clock drift is tracked, not feared.** Two devices have independent crystals, mismatched by up
-to 50 ppm, which appears as a phase ramp across subcarriers. Pilots measure that ramp every
-symbol and rotate it out. With that in place the silent band rides out 100 ppm at QPSK without
-a single bit error; 16-QAM starts to degrade around 50 ppm.
-
-*(An earlier version of these notes called drift the dominant impairment. That was mostly a
-simulator artefact — sample-rate offset was modelled with linear interpolation, which is 5 dB
-down at 19 kHz. Switching to windowed-sinc resampling recovered 13 dB. See
-[docs/DESIGN.md](docs/DESIGN.md).)*
-
-**The cyclic prefix must clear the first reflection.** The first strong echo in a normal room
-arrives 3–5 ms after the direct path. A 2.7 ms prefix leaves an error floor that no amount of
-transmit power fixes; nothing here goes below 5.3 ms.
-
-### On your ears
-
-Transmit power is shaped by the ear's own sensitivity curve, which peaks sharply around
-3–4 kHz, pushing energy toward frequencies the ear treats as dull. Peaks are controlled by
-clip-and-filter so the speaker never clips into a harsh buzz, every burst is ramped rather
-than switched on, and the app defaults to the quietest band that meets your deadline. Keep
-the volume moderate anyway.
-
-## Tests
-
-The whole signal path is verified against a simulated acoustic channel — room reverb derived
-from real 19 kHz absorption, a realistic ambient-noise spectrum, speaker and microphone
-response, and sample-clock drift. No audio hardware is involved, so it all runs in CI.
+## 测试
 
 ```bash
-node test/rs.test.mjs        # Reed-Solomon: corrects 16 byte errors, fails cleanly beyond
-node test/fountain.test.mjs  # fountain: recovery up to 85% packet loss
-node test/burst.test.mjs     # modem: sounding, bit loading, burst round trip per band
-node test/transfer.test.mjs  # full file transfers between two sessions (slow)
+npm test
 ```
 
-## Layout
+测试覆盖同步、Reed–Solomon 纠错、喷泉码恢复、模拟房间中的 OFDM 突发与丢包。可单独运行完整文件回环：
 
-```
-index.html          send / receive
-calibrate.html      device check — measures your speaker and microphone
-src/dsp/            fft, chirp sync, QAM, OFDM, psychoacoustics, bit loading
-src/fec/            CRC, Reed-Solomon, fountain code
-src/proto/          band plans, packets, bursts, session state machines
-src/audio/          Web Audio capture and playback
-src/ui/             interface
-test/               channel simulator and test suites
+```bash
+npm run test:transfer
 ```
 
-## Licence
+所有音频 DSP 测试都在模拟房间中进行，不需要真实麦克风。
 
-MIT
+## 开源与致谢
+
+传输协议与 DSP 核心来自 Sonar Transfer，原项目采用 MIT 许可证。界面与移动端改造同样以 MIT 许可证发布。详见 [LICENSE](LICENSE) 与 [NOTICE.md](NOTICE.md)。

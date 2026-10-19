@@ -1,70 +1,129 @@
 <!doctype html>
-<html lang="en">
+<html lang="zh-CN">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Device check — Sonar Transfer</title>
-<meta name="theme-color" content="#0e1319">
-<link rel="stylesheet" href="./src/ui/styles.css">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="color-scheme" content="light dark">
+  <meta name="format-detection" content="telephone=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="声桥">
+  <title>设备自检 · 声桥 SoundBridge</title>
+  <meta name="description" content="测量当前设备的扬声器与麦克风能支持哪些声波传输频段。">
+  <meta name="theme-color" content="#f5f3ed" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#071411" media="(prefers-color-scheme: dark)">
+  <link rel="icon" href="./assets/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="./assets/icon-192.png">
+  <link rel="stylesheet" href="./src/ui/styles.css">
 </head>
 <body>
-
-<header class="top">
-  <div class="brand">
-    <svg class="logo" viewBox="0 0 24 24" aria-hidden="true">
-      <path d="M3 12h2l2-5 3 10 3-13 3 16 2-8h3" fill="none" stroke="currentColor" stroke-width="1.6"
-            stroke-linecap="round" stroke-linejoin="round"/>
-    </svg>
-    <span>Device check</span>
+  <div class="ambient" aria-hidden="true">
+    <span class="ambient-a"></span>
+    <span class="ambient-b"></span>
   </div>
-  <nav class="tabs">
-    <a class="tab" href="./index.html">← Back to transfers</a>
-  </nav>
-</header>
 
-<main>
-  <div class="card">
-    <h2>What can this device actually do?</h2>
-    <p class="lead">Plays a sweep through the speaker and listens with the microphone, then
-       measures signal quality at every frequency. Speakers and microphones vary enormously
-       up near 20&nbsp;kHz, so this is the fastest way to know what you are working with.</p>
-    <p class="hint">Set the volume to about two thirds. Keep the room quiet for a few seconds.
-       Most of the sweep is inaudible; the lower part will not be.</p>
-    <div class="actions">
-      <button class="btn btn-primary" id="runBtn">Run the check</button>
+  <header class="top">
+    <div class="top-inner">
+      <a class="brand" href="./index.html" aria-label="声桥首页">
+        <img class="brand-mark" src="./assets/icon.svg" alt="" width="38" height="38">
+        <span class="brand-copy">
+          <strong>声桥</strong>
+          <small>SOUNDBRIDGE</small>
+        </span>
+      </a>
+      <div class="top-tools">
+        <span class="privacy-pill">
+          <span class="privacy-dot" aria-hidden="true"></span>
+          本地测量
+        </span>
+      </div>
     </div>
-  </div>
+    <nav class="tabs" aria-label="页面导航">
+      <a class="tab is-active" href="./index.html">← 返回文件传输</a>
+    </nav>
+  </header>
 
-  <div class="card" id="results" hidden>
-    <div class="status-head">
-      <h3 id="phase">Measuring…</h3>
-      <span class="chip" id="verdict">—</span>
+  <main class="calibrate-main">
+    <div class="hero" style="grid-template-columns: 1fr; min-height: 0; padding-top: 12px; padding-bottom: 24px;">
+      <div class="hero-copy">
+        <p class="eyebrow"><span></span> DEVICE CHECK</p>
+        <h1 style="font-size: clamp(38px, 7vw, 60px);">先听听，<br><em>这台设备行不行。</em></h1>
+        <p class="hero-lead">播放一段频率扫描，再用麦克风收回。结果显示扬声器、麦克风和房间组合实际能支持的声音频段。</p>
+      </div>
     </div>
-    <canvas class="spectrum" id="chart" width="900" height="220"></canvas>
-    <div class="legend">
-      <span><i style="background:var(--accent)"></i>Signal-to-noise ratio</span>
-      <span><i style="background:var(--warn)"></i>Ambient noise</span>
-      <span><i style="background:var(--ink-3)"></i>Usable threshold</span>
+
+    <div class="calibrate-grid">
+      <article class="card composer-card">
+        <div class="card-heading">
+          <div>
+            <p class="section-kicker">AUDIO TEST</p>
+            <h2>设备声音自检</h2>
+          </div>
+          <span class="step-badge">约 5 秒</span>
+        </div>
+        <p class="lead">把音量调到约三分之二，保持房间安静。低频部分会听得见，高频部分可能完全无声，这是正常的。</p>
+        <div class="notice notice-soft" style="margin-bottom:20px;">
+          <strong>请使用设备自带扬声器和麦克风</strong>
+          <span>蓝牙耳机与音箱会压缩高频，测量结果将无法代表声桥的真实工作能力。</span>
+        </div>
+        <div class="actions">
+          <button class="btn btn-primary btn-large" id="runBtn" type="button">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+                 stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M8 5.5v13l10-6.5-10-6.5z"></path>
+            </svg>
+            开始测量
+          </button>
+        </div>
+      </article>
+
+      <article class="card status-card" id="results" hidden aria-live="polite">
+        <div class="status-head">
+          <div>
+            <p class="section-kicker">MEASUREMENT</p>
+            <h3 id="phase">正在测量</h3>
+          </div>
+          <span class="chip" id="verdict">—</span>
+        </div>
+        <canvas class="spectrum" id="chart" width="900" height="240" aria-label="频率响应图"></canvas>
+        <div class="legend">
+          <span><i style="background:var(--accent)"></i>信噪比</span>
+          <span><i style="background:var(--warn)"></i>环境噪声</span>
+          <span><i style="background:var(--ink-3)"></i>可用阈值</span>
+        </div>
+        <dl class="stats calib-stats">
+          <div><dt>采样率</dt><dd id="sr">—</dd></div>
+          <div><dt>可用上限</dt><dd id="top">—</dd></div>
+          <div><dt>推荐模式</dt><dd id="best">—</dd></div>
+          <div><dt>估计速度</dt><dd id="speed">—</dd></div>
+        </dl>
+        <p class="note" id="notes"></p>
+      </article>
+
+      <article class="card" id="bandTable" hidden>
+        <div class="card-heading">
+          <div>
+            <p class="section-kicker">BAND PLAN</p>
+            <h3 style="margin-top:4px;">这台设备能跑多快</h3>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table class="tbl">
+            <thead><tr><th>模式</th><th>频率范围</th><th>可用载波</th><th>估计速度</th><th>10 MB 用时</th></tr></thead>
+            <tbody id="bandRows"></tbody>
+          </table>
+        </div>
+        <p class="hint">速度是当前设备、当前房间与当前噪声环境的估算值。实际传输会因距离、角度和周围声音而变化。</p>
+      </article>
     </div>
-    <dl class="stats" style="margin-top:18px">
-      <div><dt>Sample rate</dt><dd id="sr">—</dd></div>
-      <div><dt>Usable top</dt><dd id="top">—</dd></div>
-      <div><dt>Best band</dt><dd id="best">—</dd></div>
-      <div><dt>Est. speed</dt><dd id="speed">—</dd></div>
-    </dl>
-    <p class="note" id="notes"></p>
-  </div>
+  </main>
 
-  <div class="card" id="bandTable" hidden>
-    <h3 style="margin-top:0">What each band would give you</h3>
-    <table class="tbl">
-      <thead><tr><th>Band</th><th>Range</th><th>Carriers</th><th>Speed</th><th>10 MB</th></tr></thead>
-      <tbody id="bandRows"></tbody>
-    </table>
-  </div>
-</main>
+  <footer class="site-footer">
+    <span>声桥 SoundBridge · 设备自检</span>
+    <span><a href="./index.html">回到文件传输</a></span>
+  </footer>
 
-<div class="toast" id="toast" hidden></div>
-<script type="module" src="./src/ui/calibrate.js"></script>
+  <div class="toast" id="toast" hidden role="status" aria-live="polite"></div>
+  <script type="module" src="./src/ui/calibrate.js"></script>
 </body>
 </html>

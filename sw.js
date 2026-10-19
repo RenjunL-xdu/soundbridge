@@ -1,14 +1,15 @@
-// Offline cache. The whole point of an acoustic link is working without a
-// network, so the app itself must not need one after the first visit.
+// 离线缓存：第一次加载后，即使没有互联网也能打开和使用声桥。
 
-// Bump on every release. Devices that installed an earlier, cache-first worker
-// keep serving whatever they cached until the cache name changes.
-const CACHE = 'sonar-transfer-v2';
+const CACHE = 'soundbridge-v1';
 const ASSETS = [
   './',
   './index.html',
   './calibrate.html',
   './manifest.webmanifest',
+  './assets/icon.svg',
+  './assets/icon-192.png',
+  './assets/icon-512.png',
+  './assets/icon-maskable-512.png',
   './src/ui/styles.css',
   './src/ui/app.js',
   './src/ui/calibrate.js',
@@ -30,42 +31,36 @@ const ASSETS = [
   './src/proto/session.js',
 ];
 
-self.addEventListener('install', (e) => {
-  e.waitUntil(
+self.addEventListener('install', (event) => {
+  event.waitUntil(
     caches.open(CACHE)
-      .then(c => Promise.allSettled(ASSETS.map(a => c.add(a))))
-      .then(() => self.skipWaiting())
+      .then((cache) => Promise.allSettled(ASSETS.map((asset) => cache.add(asset))))
+      .then(() => self.skipWaiting()),
   );
 });
 
-self.addEventListener('activate', (e) => {
-  e.waitUntil(
+self.addEventListener('activate', (event) => {
+  event.waitUntil(
     caches.keys()
-      .then(keys => Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k))))
-      .then(() => self.clients.claim())
+      .then((keys) => Promise.all(keys.filter((key) => key !== CACHE).map((key) => caches.delete(key))))
+      .then(() => self.clients.claim()),
   );
 });
 
-// Network first, falling back to cache.
-//
-// Cache-first is the usual choice for an offline app, but it strands users on
-// whatever code they first loaded: after a deploy the browser keeps serving the
-// old modules and the app silently runs a stale version. These files are small,
-// so preferring the network when one is available costs little and guarantees
-// the code matches the site. Offline still works entirely from cache, which is
-// the property that actually matters here.
-self.addEventListener('fetch', (e) => {
-  if (e.request.method !== 'GET') return;
-  const sameOrigin = new URL(e.request.url).origin === self.location.origin;
-  e.respondWith(
-    fetch(e.request)
-      .then(res => {
-        if (res.ok && sameOrigin) {
-          const copy = res.clone();
-          caches.open(CACHE).then(c => c.put(e.request, copy));
+self.addEventListener('fetch', (event) => {
+  if (event.request.method !== 'GET') return;
+  const requestUrl = new URL(event.request.url);
+  if (requestUrl.origin !== self.location.origin) return;
+
+  event.respondWith(
+    fetch(event.request)
+      .then((response) => {
+        if (response.ok) {
+          const copy = response.clone();
+          caches.open(CACHE).then((cache) => cache.put(event.request, copy));
         }
-        return res;
+        return response;
       })
-      .catch(() => caches.match(e.request).then(hit => hit || Promise.reject(new Error('offline'))))
+      .catch(() => caches.match(event.request).then((hit) => hit || caches.match('./index.html'))),
   );
 });

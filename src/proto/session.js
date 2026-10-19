@@ -2,8 +2,9 @@
 //
 // Both devices have a speaker and a microphone, so the link is bidirectional but
 // half duplex: they take turns. Control traffic (handshake, plan, acknowledgements)
-// always rides the Silent band, which is the slowest and most robust rung and is
-// inaudible; only bulk payload moves to a faster, possibly audible band.
+// uses a dedicated 7-15 kHz band so hardware that rolls off above 17 kHz can
+// still join while low-frequency room noise is avoided.
+// Only bulk payload moves to the negotiated band, which can remain near-ultrasonic.
 //
 // The transport is abstracted so the whole flow can be exercised headlessly
 // against the channel simulator with no audio hardware involved.
@@ -20,7 +21,19 @@ import { FountainEncoder, FountainDecoder, planChunks } from '../fec/fountain.js
 import { sha256, toHex } from '../fec/crc.js';
 import * as pkt from './packet.js';
 
-export const CONTROL_BAND = 'silent';
+export const CONTROL_BAND = 'control';
+const CONTROL_BAND_SPEC = {
+  id: CONTROL_BAND,
+  name: 'Control',
+  fLo: 7000,
+  fHi: 15000,
+  N: 2048,
+  cp: 384,
+  pilotEvery: 8,
+  shaping: 0,
+  audible: true,
+  comfort: 0,
+};
 /** Payload bytes per fountain block; sized so a DATA packet fills one RS slot. */
 export const BLOCK_SIZE = 208;
 
@@ -83,18 +96,14 @@ export function buildSounding(fs) {
 
 /** Control-band plan and a conservative fixed bit loading for it. */
 export function controlSetup(fs) {
-  const plan = buildPlan(bandById(CONTROL_BAND), fs);
+  const plan = buildPlan(CONTROL_BAND_SPEC, fs);
   const bitLoad = new Int8Array(plan.N);
   for (const k of plan.data) bitLoad[k] = 1;   // BPSK: maximum robustness
   // One codeword per burst, not two.
   //
-  // Sized by codewords rather than seconds, because BPSK here is slow enough
-  // that a duration-based burst would not hold a single complete codeword. Two
-  // slots made the burst 2.51 s long, which is a serious problem for discovery:
-  // a receiver has to capture a burst *whole*, and a burst that long leaves no
-  // margin at all against capture timing. One slot halves it to ~1.34 s.
-  // Multi-packet sends simply become multiple bursts; sendControl already
-  // handles that.
+  // Sized by codewords rather than seconds so every control burst contains a
+  // whole Reed-Solomon codeword. Multi-packet sends become multiple bursts;
+  // sendControl handles that.
   const symbols = symbolsForSlots(plan, bitLoad, 1);
   return { plan, bitLoad, symbols };
 }

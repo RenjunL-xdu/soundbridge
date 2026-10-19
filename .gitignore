@@ -6,3 +6,7 @@ Thumbs.db
 .idea/
 dist/
 coverage/
+.edge-*/
+.tools/
+playwright-report/
+test-results/

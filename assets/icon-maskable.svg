@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="声桥">
+  <defs>
+    <linearGradient id="bg2" x1="50" y1="20" x2="470" y2="500" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#103b32"/>
+      <stop offset="1" stop-color="#061713"/>
+    </linearGradient>
+    <linearGradient id="wave2" x1="130" y1="256" x2="382" y2="256" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#39c8aa"/>
+      <stop offset="1" stop-color="#9bf6df"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" fill="url(#bg2)"/>
+  <circle cx="256" cy="256" r="170" fill="none" stroke="#68e3c9" stroke-opacity=".15" stroke-width="2"/>
+  <circle cx="256" cy="256" r="132" fill="none" stroke="#68e3c9" stroke-opacity=".2" stroke-dasharray="5 13" stroke-width="2"/>
+  <path d="M137 256h34l21-64 35 137 42-190 45 229 27-112h30"
+        fill="none" stroke="url(#wave2)" stroke-width="17" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="371" cy="256" r="9" fill="#ef9a72"/>
+</svg>

@@ -185,11 +185,11 @@ depends on — were left unprotected.
 
 ### Turn-taking
 
-The link is half duplex. Control traffic — handshake, plan, acknowledgements — always rides the
-Silent band with BPSK on every carrier, the slowest and most robust configuration, and is
-inaudible. Only bulk payload moves to a faster and possibly audible band. Control bursts are
-sized by whole codewords rather than by duration: BPSK on the narrow control band fits only
-~197 bytes in 0.9 s, short of the 255 a single codeword needs.
+The link is half duplex. Control traffic — handshake, plan, acknowledgements — uses BPSK on
+every carrier. In this SoundBridge build it runs in a dedicated 7–15 kHz band so devices whose
+microphones roll off above 17 kHz can still establish a link without sitting in the noisiest
+part of the room spectrum. Only bulk payload moves to the negotiated band, which can remain
+near-ultrasonic. Control bursts are sized by whole codewords rather than by duration.
 
 ## 4. Ear safety
 
@@ -217,10 +217,10 @@ sized by whole codewords rather than by duration: BPSK on the narrow control ban
   No amount of coding changes the order of magnitude — the band is 20 kHz wide and that is that.
 
 - **Acknowledgement rounds are surprisingly expensive.** A control burst plus a listen costs
-  ~3.8 s against 1.36 s for a data burst, because control always runs BPSK on the narrow silent
-  band. Acknowledging every 8 bursts added ~35% overhead; large transfers now acknowledge every
-  24. Moving acknowledgements onto the negotiated data band would recover most of the rest, at
-  the cost of making the back-channel audible whenever the forward channel is.
+  about two seconds against roughly 1.4 s for a data burst, because control is deliberately
+  BPSK and must wait for the other device to finish decoding. Large transfers acknowledge every
+  24 bursts to amortise that cost. Moving acknowledgements onto the negotiated data band would
+  recover time, at the cost of making the back-channel match the forward channel.
 - **No encryption yet.** Sound is a broadcast medium and anyone in the room can record it. The
   intended design is X25519 key agreement with a four-digit short-authentication-string shown
   on both screens, and AES-256-GCM payloads; the packet format reserves room for it but it is

@@ -1,25 +1,35 @@
 {
-  "name": "Sonar Transfer",
-  "short_name": "Sonar",
-  "description": "Send files between devices using sound alone. No network, no pairing.",
+  "id": "./",
+  "name": "声桥 SoundBridge",
+  "short_name": "声桥",
+  "description": "无需网络、无需配对，用声音在两台设备之间传文件。",
+  "lang": "zh-CN",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
-  "orientation": "portrait",
-  "background_color": "#0e1319",
-  "theme_color": "#0e1319",
+  "display_override": ["window-controls-overlay", "standalone", "browser"],
+  "orientation": "any",
+  "background_color": "#f5f3ed",
+  "theme_color": "#071411",
+  "categories": ["utilities", "productivity"],
   "icons": [
     {
-      "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'%3E%3Crect width='192' height='192' rx='40' fill='%230e1319'/%3E%3Cpath d='M24 96h16l16-40 24 80 24-104 24 128 16-64h24' fill='none' stroke='%233fceda' stroke-width='11' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E",
+      "src": "./assets/icon-192.png",
       "sizes": "192x192",
-      "type": "image/svg+xml",
+      "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='108' fill='%230e1319'/%3E%3Cpath d='M64 256h43l43-107 64 214 64-278 64 342 43-171h64' fill='none' stroke='%233fceda' stroke-width='29' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E",
+      "src": "./assets/icon-512.png",
       "sizes": "512x512",
-      "type": "image/svg+xml",
-      "purpose": "any maskable"
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "./assets/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     }
   ]
 }

@@ -1,181 +1,388 @@
 <!doctype html>
-<html lang="en">
+<html lang="zh-CN">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Sonar Transfer</title>
-<meta name="description" content="Send files between devices using sound alone. No network, no pairing.">
-<meta name="theme-color" content="#0e1319">
-<link rel="manifest" href="./manifest.webmanifest">
-<link rel="stylesheet" href="./src/ui/styles.css">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="color-scheme" content="light dark">
+  <meta name="format-detection" content="telephone=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="声桥">
+  <title>声桥 SoundBridge · 用声音传文件</title>
+  <meta name="description" content="无需网络、无需配对的浏览器文件传输工具。两台设备靠近，用声音把文件从一台设备送到另一台。">
+  <meta name="theme-color" content="#f5f3ed" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#071411" media="(prefers-color-scheme: dark)">
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="icon" href="./assets/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="./assets/icon-192.png">
+  <link rel="stylesheet" href="./src/ui/styles.css">
 </head>
 <body>
 
+<div class="ambient" aria-hidden="true">
+  <span class="ambient-a"></span>
+  <span class="ambient-b"></span>
+</div>
+
 <header class="top">
-  <div class="brand">
-    <svg class="logo" viewBox="0 0 24 24" aria-hidden="true">
-      <path d="M3 12h2l2-5 3 10 3-13 3 16 2-8h3" fill="none" stroke="currentColor" stroke-width="1.6"
-            stroke-linecap="round" stroke-linejoin="round"/>
-    </svg>
-    <span>Sonar Transfer</span>
+  <div class="top-inner">
+    <a class="brand" href="./index.html" aria-label="声桥首页">
+      <img class="brand-mark" src="./assets/icon.svg" alt="" width="38" height="38">
+      <span class="brand-copy">
+        <strong>声桥</strong>
+        <small>SOUNDBRIDGE</small>
+      </span>
+    </a>
+    <div class="top-tools">
+      <span class="privacy-pill">
+        <span class="privacy-dot" aria-hidden="true"></span>
+        文件不离开设备
+      </span>
+      <button class="install-btn" id="installBtn" type="button" hidden>安装到手机</button>
+    </div>
   </div>
-  <nav class="tabs" role="tablist">
-    <button class="tab is-active" role="tab" data-panel="send">Send</button>
-    <button class="tab" role="tab" data-panel="receive">Receive</button>
-    <button class="tab" role="tab" data-panel="about">How it works</button>
+  <nav class="tabs" role="tablist" aria-label="主要功能">
+    <button class="tab is-active" id="tab-send" type="button" role="tab"
+            aria-selected="true" aria-controls="panel-send" data-panel="send">发送</button>
+    <button class="tab" id="tab-receive" type="button" role="tab"
+            aria-selected="false" aria-controls="panel-receive" data-panel="receive">接收</button>
+    <button class="tab" id="tab-about" type="button" role="tab"
+            aria-selected="false" aria-controls="panel-about" data-panel="about">怎么用</button>
   </nav>
 </header>
 
 <main>
-
-<!-- ─────────────────────────────── SEND ─────────────────────────────── -->
-<section class="panel is-active" id="panel-send">
-  <div class="card">
-    <h2>Send a file</h2>
-    <p class="lead">The two devices negotiate over sound, measure the room, and pick the
-       quietest band fast enough for the job.</p>
-
-    <label class="drop" id="drop">
-      <input type="file" id="file" hidden>
-      <span class="drop-icon" aria-hidden="true">↑</span>
-      <span class="drop-main">Choose a file</span>
-      <span class="drop-sub" id="fileInfo">or drop one here</span>
-    </label>
-
-    <div class="field">
-      <div class="field-head">
-        <label for="comfort">How loud may it get?</label>
-        <output id="comfortLabel">Audible</output>
+  <section class="hero" aria-labelledby="heroTitle">
+    <div class="hero-copy">
+      <p class="eyebrow"><span></span> 无需网络 · 无需配对</p>
+      <h1 id="heroTitle">把文件，<br><em>交给声音。</em></h1>
+      <p class="hero-lead">两台设备靠近，一台播放，一台聆听。声音就是数据线，浏览器就是全部工具。</p>
+      <div class="hero-meta">
+        <span>本地运算</span>
+        <span>跨平台</span>
+        <span>可离线使用</span>
       </div>
-      <input type="range" id="comfort" min="0" max="3" step="1" value="2">
-      <div class="ticks"><span>Silent</span><span>Discreet</span><span>Audible</span><span>Full</span></div>
-      <p class="hint" id="comfortHint">Uses frequencies from 4 kHz up. Sounds like a soft hiss.</p>
     </div>
-
-    <div class="field">
-      <div class="field-head">
-        <label for="budget">Finish within</label>
-        <output id="budgetLabel">5 minutes</output>
+    <div class="hero-sonar" aria-hidden="true">
+      <div class="sonar-ring sonar-ring-1"></div>
+      <div class="sonar-ring sonar-ring-2"></div>
+      <div class="sonar-ring sonar-ring-3"></div>
+      <div class="sonar-core">
+        <div class="hero-wave">
+          <i style="--h: 28%"></i><i style="--h: 55%"></i><i style="--h: 86%"></i>
+          <i style="--h: 48%"></i><i style="--h: 100%"></i><i style="--h: 70%"></i>
+          <i style="--h: 40%"></i><i style="--h: 78%"></i><i style="--h: 52%"></i>
+          <i style="--h: 24%"></i>
+        </div>
+        <span>0.8—20 kHz</span>
       </div>
-      <input type="range" id="budget" min="1" max="60" step="1" value="5">
-      <p class="hint">The quietest band that meets this target wins. If none can, the fastest is used.</p>
     </div>
+  </section>
 
-    <div class="actions">
-      <button class="btn btn-primary" id="sendBtn" disabled>Start sending</button>
-      <button class="btn" id="sendStop" hidden>Stop</button>
-    </div>
+  <div class="flow-strip" aria-label="使用步骤">
+    <div class="flow-step"><b>01</b><span><strong>接收端</strong>点击开始监听</span></div>
+    <div class="flow-line" aria-hidden="true"></div>
+    <div class="flow-step"><b>02</b><span><strong>发送端</strong>选择文件并播放</span></div>
+    <div class="flow-line" aria-hidden="true"></div>
+    <div class="flow-step"><b>03</b><span><strong>保持靠近</strong>等进度走完</span></div>
   </div>
 
-  <div class="card status" id="sendStatus" hidden>
-    <div class="status-head">
-      <h3 id="sendPhase">Preparing</h3>
-      <span class="chip" id="sendBand">—</span>
+  <!-- ------------------------------- SEND ------------------------------- -->
+  <section class="panel is-active" id="panel-send" role="tabpanel" aria-labelledby="tab-send">
+    <div class="panel-grid">
+      <article class="card composer-card">
+        <div class="card-heading">
+          <div>
+            <p class="section-kicker">SEND</p>
+            <h2>发送文件</h2>
+          </div>
+          <span class="step-badge">发送端</span>
+        </div>
+        <p class="lead">选择文件后，声音会自动适配房间和设备的频响。文件越小，完成得越快。</p>
+
+        <label class="drop" id="drop">
+          <input type="file" id="file" hidden>
+          <span class="drop-visual" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
+                 stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 16V4m0 0L7.5 8.5M12 4l4.5 4.5"></path>
+              <path d="M5 14v4.5A1.5 1.5 0 0 0 6.5 20h11a1.5 1.5 0 0 0 1.5-1.5V14"></path>
+            </svg>
+          </span>
+          <span class="drop-main" id="dropMain">选择要发送的文件</span>
+          <span class="drop-sub" id="fileInfo">也可以把文件拖到这里</span>
+          <span class="drop-action" id="dropAction">浏览文件</span>
+        </label>
+
+        <fieldset class="fieldset">
+          <legend>声音模式</legend>
+          <div class="choice-grid" id="comfortChoices" role="radiogroup" aria-label="声音模式">
+            <button class="choice" type="button" role="radio" aria-checked="false" data-value="0">
+              <span class="choice-icon" aria-hidden="true">◌</span>
+              <strong>极静</strong>
+              <small>17.5–20 kHz · 较慢</small>
+            </button>
+            <button class="choice" type="button" role="radio" aria-checked="false" data-value="1">
+              <span class="choice-icon" aria-hidden="true">⊂</span>
+              <strong>轻声</strong>
+              <small>14–20 kHz · 适中</small>
+            </button>
+            <button class="choice is-active" type="button" role="radio" aria-checked="true" data-value="2">
+              <span class="choice-icon" aria-hidden="true">∿</span>
+              <strong>清晰</strong>
+              <small>4–20 kHz · 较快</small>
+            </button>
+            <button class="choice" type="button" role="radio" aria-checked="false" data-value="3">
+              <span class="choice-icon choice-icon-fast" aria-hidden="true">≋</span>
+              <strong>极速</strong>
+              <small>0.8–20 kHz · 最快</small>
+            </button>
+          </div>
+          <p class="hint" id="comfortHint">从 4 kHz 起使用更宽的频谱，听起来像轻柔的白噪声。</p>
+        </fieldset>
+
+        <div class="field-group">
+          <div class="fieldset-title">目标完成时间</div>
+          <div class="pill-group" id="budgetChoices" role="radiogroup" aria-label="目标完成时间">
+            <button class="pill" type="button" role="radio" aria-checked="false" data-budget="1">1 分钟</button>
+            <button class="pill is-active" type="button" role="radio" aria-checked="true" data-budget="5">5 分钟</button>
+            <button class="pill" type="button" role="radio" aria-checked="false" data-budget="15">15 分钟</button>
+            <button class="pill" type="button" role="radio" aria-checked="false" data-budget="30">30 分钟</button>
+          </div>
+          <p class="hint">应用会在满足时间的方案里，优先选择最安静的声音。</p>
+        </div>
+
+        <div class="actions">
+          <button class="btn btn-primary btn-large" id="sendBtn" type="button" disabled>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+                 stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M5 12h2l2-5 3 10 3-13 3 16 2-8h1"></path>
+            </svg>
+            开始发送
+          </button>
+          <button class="btn btn-quiet" id="sendStop" type="button" hidden>停止播放</button>
+        </div>
+      </article>
+
+      <aside class="card tips-card">
+        <p class="section-kicker">BEFORE YOU START</p>
+        <h3>三件事，决定成功率</h3>
+        <ol class="tip-list">
+          <li>
+            <span class="tip-number">1</span>
+            <span><strong>先让对方监听</strong><small>接收端先点“开始监听”，发送端再开始播放。</small></span>
+          </li>
+          <li>
+            <span class="tip-number">2</span>
+            <span><strong>靠近，但不要贴住</strong><small>10–50 厘米最合适，扬声器朝向对方麦克风。</small></span>
+          </li>
+          <li>
+            <span class="tip-number">3</span>
+            <span><strong>关掉蓝牙耳机</strong><small>蓝牙编码会切掉高频。请使用设备自带扬声器和麦克风。</small></span>
+          </li>
+        </ol>
+        <a class="text-link" href="./calibrate.html">新设备？先做声音自检 <span>→</span></a>
+      </aside>
     </div>
-    <div class="bar"><div class="bar-fill" id="sendBar"></div></div>
-    <dl class="stats">
-      <div><dt>Elapsed</dt><dd id="sendElapsed">0s</dd></div>
-      <div><dt>Remaining</dt><dd id="sendEta">—</dd></div>
-      <div><dt>Rate</dt><dd id="sendRate">—</dd></div>
-      <div><dt>Chunks</dt><dd id="sendChunks">—</dd></div>
-    </dl>
-    <p class="note" id="sendNote"></p>
-  </div>
-</section>
 
-<!-- ────────────────────────────── RECEIVE ───────────────────────────── -->
-<section class="panel" id="panel-receive">
-  <div class="card">
-    <h2>Receive a file</h2>
-    <p class="lead">Start listening, then begin the transfer on the sending device.
-       Put the two within about a metre, speaker facing microphone.</p>
-    <div class="actions">
-      <button class="btn btn-primary" id="recvBtn">Start listening</button>
-      <button class="btn" id="recvStop" hidden>Stop</button>
+    <article class="card status-card" id="sendStatus" hidden aria-live="polite">
+      <div class="status-head">
+        <div>
+          <p class="section-kicker">TRANSMITTING</p>
+          <h3 id="sendPhase">正在准备声音</h3>
+        </div>
+        <span class="chip" id="sendBand">等待接收端</span>
+      </div>
+      <div class="signal-wave is-live" id="sendWave" aria-hidden="true">
+        <i style="--h: 22%"></i><i style="--h: 48%"></i><i style="--h: 76%"></i>
+        <i style="--h: 38%"></i><i style="--h: 92%"></i><i style="--h: 58%"></i>
+        <i style="--h: 30%"></i><i style="--h: 68%"></i><i style="--h: 100%"></i>
+        <i style="--h: 44%"></i><i style="--h: 82%"></i><i style="--h: 52%"></i>
+        <i style="--h: 26%"></i><i style="--h: 62%"></i><i style="--h: 36%"></i>
+      </div>
+      <div class="progress-head">
+        <span>传输进度</span>
+        <strong id="sendPercent">0%</strong>
+      </div>
+      <div class="bar"><div class="bar-fill" id="sendBar"></div></div>
+      <dl class="stats">
+        <div><dt>已用时间</dt><dd id="sendElapsed">0 秒</dd></div>
+        <div><dt>预计剩余</dt><dd id="sendEta">—</dd></div>
+        <div><dt>实际速率</dt><dd id="sendRate">—</dd></div>
+        <div><dt>数据块</dt><dd id="sendChunks">—</dd></div>
+      </dl>
+      <p class="note" id="sendNote">正在等待接收端返回房间测量结果。</p>
+    </article>
+  </section>
+
+  <!-- ------------------------------ RECEIVE ----------------------------- -->
+  <section class="panel" id="panel-receive" role="tabpanel" aria-labelledby="tab-receive" hidden>
+    <div class="panel-grid">
+      <article class="card receiver-card">
+        <div class="card-heading">
+          <div>
+            <p class="section-kicker">RECEIVE</p>
+            <h2>接收文件</h2>
+          </div>
+          <span class="step-badge step-badge-warm">接收端</span>
+        </div>
+        <p class="lead">先开始监听，再让另一台设备发送。文件会直接在浏览器里拼装完成。</p>
+
+        <div class="receive-stage" id="receiveStage">
+          <div class="listen-rings" aria-hidden="true"><i></i><i></i><i></i></div>
+          <button class="listen-orb" id="recvBtn" type="button" aria-describedby="receiveHelp">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+                 stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <rect x="9" y="3" width="6" height="11" rx="3"></rect>
+              <path d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v3M9 21h6"></path>
+            </svg>
+            <span id="recvBtnLabel">开始监听</span>
+          </button>
+        </div>
+        <p class="receive-help" id="receiveHelp">允许麦克风后，把两台设备靠近。传输过程中请保持页面打开。</p>
+
+        <div class="meter" id="meterWrap" hidden>
+          <span class="meter-label">麦克风</span>
+          <div class="meter-track"><div class="meter-fill" id="meterFill"></div></div>
+        </div>
+
+        <div class="actions actions-center">
+          <button class="btn btn-quiet" id="recvStop" type="button" hidden>停止监听</button>
+        </div>
+      </article>
+
+      <aside class="card tips-card">
+        <p class="section-kicker">QUIET LINK</p>
+        <h3>听不见，不代表没在传</h3>
+        <p class="aside-copy">极静模式使用接近超声波的频段传文件主体。建立连接和进度确认时会播放很短的控制音，因此仍可能听到轻微声响。</p>
+        <div class="range-visual" aria-hidden="true">
+          <div class="range-track"><span></span></div>
+          <div class="range-labels"><span>人声</span><span>可听</span><span>极静</span></div>
+        </div>
+        <div class="notice notice-soft">
+          <strong>提醒</strong>
+          <span>部分手机的麦克风或扬声器不支持 17 kHz 以上频段。若一直无信号，请发送端改用“清晰”模式。</span>
+        </div>
+      </aside>
     </div>
-    <div class="meter" id="meterWrap" hidden>
-      <span class="meter-label">Mic</span>
-      <div class="meter-track"><div class="meter-fill" id="meterFill"></div></div>
+
+    <article class="card status-card" id="recvStatus" hidden aria-live="polite">
+      <div class="status-head">
+        <div>
+          <p class="section-kicker">RECEIVING</p>
+          <h3 id="recvPhase">正在聆听</h3>
+        </div>
+        <span class="chip" id="recvBand">等待信号</span>
+      </div>
+      <div class="progress-head">
+        <span>接收进度</span>
+        <strong id="recvPercent">0%</strong>
+      </div>
+      <div class="bar"><div class="bar-fill" id="recvBar"></div></div>
+      <dl class="stats">
+        <div><dt>文件名</dt><dd id="recvName">—</dd></div>
+        <div><dt>大小</dt><dd id="recvSize">—</dd></div>
+        <div><dt>数据块</dt><dd id="recvChunks">—</dd></div>
+        <div><dt>链路质量</dt><dd id="recvQuality">—</dd></div>
+      </dl>
+      <p class="note" id="recvNote">保持安静，让两台设备保持不动。</p>
+
+      <div class="received-card" id="recvResult" hidden>
+        <div class="received-file">
+          <span class="file-glyph" id="recvFileGlyph" aria-hidden="true">FILE</span>
+          <span class="received-file-copy">
+            <strong id="recvResultName">已接收文件</strong>
+            <small id="recvVerify">校验通过</small>
+          </span>
+        </div>
+        <div class="received-actions">
+          <a class="btn btn-primary" id="recvDownload" download>保存文件</a>
+          <button class="btn" id="recvShare" type="button" hidden>分享</button>
+          <button class="btn btn-quiet" id="recvAgain" type="button">继续接收</button>
+        </div>
+      </div>
+    </article>
+  </section>
+
+  <!-- ------------------------------- ABOUT ------------------------------ -->
+  <section class="panel" id="panel-about" role="tabpanel" aria-labelledby="tab-about" hidden>
+    <div class="about-grid">
+      <article class="card prose-card">
+        <p class="section-kicker">UNDER THE HOOD</p>
+        <h2>声音如何变成文件？</h2>
+        <p>文件先被压缩、切块并加上纠错。每一块再被调制到成百上千个同时发声的频率上，像一台微型调制解调器。接收端的麦克风听到声音后，反向计算并拼回原文件。</p>
+        <div class="tech-flow" aria-label="传输流程">
+          <span>文件</span><i>→</i><span>压缩 / 纠错</span><i>→</i><span>OFDM 调制</span><i>→</i><span>扬声器</span>
+          <b>声音信道</b>
+          <span>麦克风</span><i>→</i><span>解码 / 拼装</span><i>→</i><span>文件</span>
+        </div>
+
+        <h3>它会先测量这个房间</h3>
+        <p>发送前，设备之间先交换一段频率扫描。接收端测量每个频段的质量，再让发送端只使用清晰的频率。嘈杂、缺失或设备放不出来的频段会被自动避开。</p>
+
+        <h3>丢了一小段也不会失败</h3>
+        <p>数据使用喷泉码和 Reed–Solomon 纠错。有人说话、门响或手机轻微移动时，传输通常会变慢一点，而不是整份文件报废。</p>
+
+        <h3>为什么不是瞬间完成？</h3>
+        <p>声音的可用频谱只有约 20 kHz，实际稳定速率通常在每秒几百字节到几 KB。文字、密钥、配置和小型文档最合适；数百 MB 的文件需要几十分钟，不适合作为日常方式。</p>
+        <div class="notice notice-warn">
+          <strong>隐私提示</strong>
+          <span>声音是开放信道。附近的人可以录下传输内容，本版本也没有端到端加密。请勿传密码、私钥或其他敏感信息。</span>
+        </div>
+
+        <h3>使用边界</h3>
+        <ul class="clean-list">
+          <li>两台设备都需要扬声器和麦克风，并且都需要先打开本页面。</li>
+          <li>请使用设备自带扬声器与麦克风，不要使用蓝牙音频设备。</li>
+          <li>手机通过浏览器使用麦克风时，页面必须由 HTTPS 提供。</li>
+          <li>首次加载后可安装到桌面并离线打开；传输过程本身不需要互联网。</li>
+        </ul>
+      </article>
+
+      <aside class="about-side">
+        <article class="card action-card">
+          <span class="action-icon action-icon-mic" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+                 stroke-linecap="round" stroke-linejoin="round">
+              <rect x="9" y="3" width="6" height="11" rx="3"></rect>
+              <path d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v3M9 21h6"></path>
+            </svg>
+          </span>
+          <h3>第一次使用？</h3>
+          <p>用声音自检测出设备真正能发出的频率范围。两台设备都值得跑一次。</p>
+          <a class="btn btn-primary" href="./calibrate.html">打开设备自检</a>
+        </article>
+
+        <article class="card action-card">
+          <span class="action-icon action-icon-code" aria-hidden="true">&lt;/&gt;</span>
+          <h3>开放技术底座</h3>
+          <p>声桥的界面与移动端体验在此完成，传输核心源自 Sonar Transfer 的 MIT 开源实现。</p>
+          <a class="text-link" href="https://github.com/Shreevallabhadatt/sonar-transfer"
+             target="_blank" rel="noreferrer">在 GitHub 查看技术实现 <span>↗</span></a>
+        </article>
+
+        <article class="card action-card compact">
+          <div class="mini-facts">
+            <div><strong>0</strong><span>服务器上传</span></div>
+            <div><strong>2</strong><span>设备即可工作</span></div>
+            <div><strong>MIT</strong><span>开源协议</span></div>
+          </div>
+        </article>
+      </aside>
     </div>
-  </div>
-
-  <div class="card status" id="recvStatus" hidden>
-    <div class="status-head">
-      <h3 id="recvPhase">Listening</h3>
-      <span class="chip" id="recvBand">—</span>
-    </div>
-    <div class="bar"><div class="bar-fill" id="recvBar"></div></div>
-    <dl class="stats">
-      <div><dt>File</dt><dd id="recvName">—</dd></div>
-      <div><dt>Size</dt><dd id="recvSize">—</dd></div>
-      <div><dt>Chunks</dt><dd id="recvChunks">—</dd></div>
-      <div><dt>Link quality</dt><dd id="recvQuality">—</dd></div>
-    </dl>
-    <p class="note" id="recvNote"></p>
-    <div id="recvResult" hidden>
-      <a class="btn btn-primary" id="recvDownload" download>Save file</a>
-      <p class="note" id="recvVerify"></p>
-    </div>
-  </div>
-</section>
-
-<!-- ─────────────────────────────── ABOUT ────────────────────────────── -->
-<section class="panel" id="panel-about">
-  <div class="card prose">
-    <h2>How it works</h2>
-
-    <p>Data is carried on many simultaneous audio tones — the same idea a dial-up
-       modem or Wi-Fi uses, played through a speaker and picked up by a microphone.</p>
-
-    <h3>It measures the room first</h3>
-    <p>Before sending anything, the two devices exchange a frequency sweep. The receiver
-       measures signal quality at every frequency and reports back. Frequencies that are
-       noisy, blocked, or simply not reproduced by your speaker are dropped; the clear ones
-       carry more bits each. This is why it adapts to whatever hardware and room you have.</p>
-
-    <h3>Losing sound is fine</h3>
-    <p>Packets are encoded with a <em>fountain code</em>. The sender emits an endless stream of
-       distinct combinations, and the receiver needs any sufficient number of them — not any
-       particular ones. If someone talks, a door slams, or the phone is nudged, the transfer
-       gets slightly longer rather than failing. No retransmission requests are needed.</p>
-
-    <h3>Choosing a frequency band</h3>
-    <table class="tbl">
-      <thead><tr><th>Band</th><th>Range</th><th>Sounds like</th><th>Speed</th></tr></thead>
-      <tbody>
-        <tr><td>Silent</td><td>17.5–20 kHz</td><td>Nothing, to almost all adults</td><td>Slowest</td></tr>
-        <tr><td>Discreet</td><td>14–20 kHz</td><td>Nothing to most adults; children may hear it</td><td>Slow</td></tr>
-        <tr><td>Audible</td><td>4–20 kHz</td><td>A soft hiss</td><td>Fast</td></tr>
-        <tr><td>Full</td><td>0.4–20 kHz</td><td>A dial-up modem</td><td>Fastest</td></tr>
-      </tbody>
-    </table>
-    <p>The narrower the band, the less room there is for data. That is the whole trade:
-       silence costs speed. The app picks the quietest band that still meets your time budget.</p>
-
-    <h3>On your ears</h3>
-    <p>Transmit power is shaped by the ear's own sensitivity curve, which peaks sharply
-       around 3–4 kHz. Energy is pushed toward frequencies the ear treats as dull, so the
-       same data rate is markedly less irritating. Levels are kept well below anything
-       hazardous, bursts are ramped rather than switched on, and peaks are controlled so the
-       speaker never clips. Even so: keep the volume moderate, and note that children and
-       pets hear considerably more of this than you do.</p>
-
-    <h3>Honest limits</h3>
-    <p>Usable audio bandwidth is about 20 kHz, and only a sliver of it is inaudible. That
-       caps throughput at a few kilobytes per second. Small files — keys, configs, text,
-       documents — move in seconds. A 10 MB file is realistically tens of minutes, and the
-       app tells you the estimate before starting rather than after.</p>
-    <p><strong>Bluetooth speakers and headsets will not work.</strong> Their codecs discard
-       exactly this part of the spectrum. Use built-in speakers and microphones.</p>
-
-    <p class="calib-link"><a href="./calibrate.html">Run the device check →</a>
-       Measures what your speaker and microphone can actually reproduce.</p>
-  </div>
-</section>
-
+  </section>
 </main>
 
-<div class="toast" id="toast" hidden></div>
+<footer class="site-footer">
+  <span>声桥 SoundBridge · 用声音连接设备</span>
+  <span>
+    传输核心基于
+    <a href="https://github.com/Shreevallabhadatt/sonar-transfer" target="_blank" rel="noreferrer">Sonar Transfer</a>
+    · MIT
+  </span>
+</footer>
+
+<div class="toast" id="toast" hidden role="status" aria-live="polite"></div>
 
 <script type="module" src="./src/ui/app.js"></script>
 </body>

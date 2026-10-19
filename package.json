@@ -1,18 +1,30 @@
 {
-  "name": "sonar-transfer",
+  "name": "soundbridge",
   "version": "1.0.0",
-  "description": "Send files between devices using sound alone. No network, no pairing.",
+  "description": "声桥：无需网络或配对，用声音在设备之间传输文件的浏览器 PWA。",
   "type": "module",
   "private": true,
   "scripts": {
+    "start": "node server.mjs",
+    "serve": "node server.mjs",
     "test": "node test/timing.test.mjs && node test/rs.test.mjs && node test/fountain.test.mjs && node test/burst.test.mjs",
+    "test:timing": "node test/timing.test.mjs",
     "test:rs": "node test/rs.test.mjs",
     "test:fountain": "node test/fountain.test.mjs",
-    "test:timing": "node test/timing.test.mjs",
     "test:modem": "node test/burst.test.mjs",
-    "test:transfer": "node test/transfer.test.mjs",
-    "serve": "python -m http.server 8000"
+    "test:transfer": "node test/transfer.test.mjs"
   },
-  "keywords": ["acoustic", "ultrasonic", "ofdm", "data-over-sound", "fountain-code", "webaudio"],
+  "keywords": [
+    "acoustic",
+    "ultrasonic",
+    "ofdm",
+    "data-over-sound",
+    "file-transfer",
+    "pwa",
+    "webaudio"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
   "license": "MIT"
 }
